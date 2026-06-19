@@ -10,15 +10,23 @@ fixed-length TTV feature. This is the "physics" we learn to invert.
               Cartesian e-vectors avoid the angle wrap of w and the e->0 singularity,
               and are what TTVs actually constrain (Lithwick et al. 2012).
 
-Geometry: 1 star + 2 coplanar planets (inclination 0). Observer along +x; a transit
-of a planet = its sky-plane coordinate y (relative to star) crosses 0 from - to +
-while in front (x>0). BOTH planets transit, so each one's timing constrains the
+Geometry: 1 star + 2 coplanar planets (inclination 0, edge-on). Observer along +x; a
+transit of a planet = its sky-plane coordinate y (relative to star) crosses 0 from -
+to + while in front (x>0). BOTH planets transit, so each one's timing constrains the
 other's mass. Periods and orbital phases are held fixed (periods are measured
 directly from the transit ephemerides; the inner transit epoch sets t=0).
 
-Public API: simulate(theta, noise_min, rng), sample_prior(n, rng), and the
-THETA_*/FEATURE_DIM/N_TRANSITS_* constants. REBOUND runs one system per process, so
-simulate() parallelizes across rows for batch generation.
+Observables: the timing feature is the O-C residual of each planet's transits. With
+durations=True, simulate() additionally emits the transit-DURATION residual (TDV):
+in this edge-on coplanar geometry the planet crosses the stellar diameter 2*R_STAR at
+its sky-plane speed |v_y| at mid-transit, so the duration is 2*R_STAR/|v_y|. Duration
+depends mainly on a planet's OWN orbital speed (set by its eccentricity), which
+constrains eccentricity largely independently of the perturber mass -- the lever that
+breaks the mass-eccentricity degeneracy the timing amplitude alone cannot.
+
+Public API: simulate(theta, noise_min, rng, p2, durations), sample_prior(n, rng), and
+the THETA_*/FEATURE_DIM/FEATURE_DIM_FULL/N_TRANSITS_* constants. REBOUND runs one
+system per process, so simulate() parallelizes across rows for batch generation.
 """
 import os
 import numpy as np
@@ -37,9 +45,12 @@ PHASE1 = 0.0                  # inner planet sky-position angle at t=0 (-> trans
 PHASE2 = 1.0                  # outer planet sky-position angle at t=0 (rad, fixed)
 BASELINE = 500.0 * DAY
 STEP = P1 / 60.0              # WHFast timestep / transit-search sampling step
+R_STAR = 0.00465047          # stellar radius [AU] (1 solar radius); sets transit duration
 N_TRANSITS_1 = 40             # inner-planet transits used in the feature
 N_TRANSITS_2 = 20            # outer-planet transits used in the feature
-FEATURE_DIM = N_TRANSITS_1 + N_TRANSITS_2
+FEATURE_DIM = N_TRANSITS_1 + N_TRANSITS_2          # times-only feature (default)
+DURATION_DIM = N_TRANSITS_1 + N_TRANSITS_2         # one duration residual per transit
+FEATURE_DIM_FULL = FEATURE_DIM + DURATION_DIM      # times + durations (durations=True)
 
 # ----- priors on the inferred parameters -----
 M1_LO, M1_HI = 3.0, 15.0      # M_earth
@@ -62,7 +73,8 @@ def _add_planet(sim, m_earth, P, h, k, phase):
 
 
 def _simulate_one(args):
-    """Run one REBOUND system; return (times1, times2) in years, or None if too few.
+    """Run one REBOUND system; return (times1, times2, durs1, durs2) in years, or None
+    if too few transits. durs_i are per-transit durations 2*R_STAR/|v_y| at mid-transit.
     args = (m1, m2, h1, k1, h2, k2, P2_years) — P2 is per-system (allows ratio sweeps)."""
     m1, m2, h1, k1, h2, k2, P2_i = args
     sim = rebound.Simulation()
@@ -79,6 +91,7 @@ def _simulate_one(args):
     t_prev = sim.t
     tmax = BASELINE * 1.8
     times = [[], []]
+    durs = [[], []]
     need = (N_TRANSITS_1, N_TRANSITS_2)
     ESCAPE2 = 9.0      # (3 AU)^2: bound (even eccentric) orbits stay well below; ejections exceed it
     while (len(times[0]) < need[0] or len(times[1]) < need[1]) and sim.t < tmax:
@@ -95,12 +108,16 @@ def _simulate_one(args):
             if y_old < 0.0 and y_new >= 0.0 and x_new > 0.0 and len(times[idx]) < need[idx]:
                 frac = -y_old / (y_new - y_old)
                 times[idx].append(t_prev + frac * STEP)
+                # sky-plane crossing speed at mid-transit -> duration of the 2*R_STAR chord
+                v_y = abs(ps[pi].vy - ps[0].vy) + 1e-12
+                durs[idx].append(2.0 * R_STAR / v_y)
             prev[idx] = (x_new, y_new)
         t_prev = sim.t
 
     if len(times[0]) < need[0] or len(times[1]) < need[1]:
         return None
-    return np.array(times[0][:need[0]]), np.array(times[1][:need[1]])
+    return (np.array(times[0][:need[0]]), np.array(times[1][:need[1]]),
+            np.array(durs[0][:need[0]]),  np.array(durs[1][:need[1]]))
 
 
 def _oc(times, n):
@@ -112,16 +129,39 @@ def _oc(times, n):
     return (times - (t0 + idx * P)) / MIN
 
 
-def _feature(pair):
+def _circ_duration(P):
+    """transit duration of a circular orbit of period P [yr]: 2*R_STAR / v_circ.
+    a^3 = P^2 in (AU, yr, Msun) units, v_circ = 2*pi*a/P, so T = R_STAR*P/(pi*a)."""
+    a = P ** (2.0 / 3.0)
+    return R_STAR * P / (np.pi * a)
+
+
+def _dur_anom(durs, n, P):
+    """transit durations -> anomaly (minutes) vs the circular-orbit duration for period P.
+    Keeps BOTH the eccentricity-dependent mean offset (the strong signal) and the
+    transit-to-transit variation (TDV). Referenced to a fixed physical baseline, not the
+    per-system mean, so the mean offset is preserved."""
+    durs = np.asarray(durs[:n])
+    return (durs - _circ_duration(P)) / MIN
+
+
+def _feature(pair, p2_i, durations=False):
     if pair is None:
         return None
-    t1, t2 = pair
-    return np.concatenate([_oc(t1, N_TRANSITS_1), _oc(t2, N_TRANSITS_2)])
+    t1, t2, d1, d2 = pair
+    feat = np.concatenate([_oc(t1, N_TRANSITS_1), _oc(t2, N_TRANSITS_2)])
+    if not durations:
+        return feat
+    dur = np.concatenate([_dur_anom(d1, N_TRANSITS_1, P1), _dur_anom(d2, N_TRANSITS_2, p2_i)])
+    return np.concatenate([feat, dur])
 
 
-def simulate(theta, noise_min=0.0, rng=None, p2=None):
-    """theta: (N,6). Returns features (N, FEATURE_DIM) in minutes; bad rows -> NaN.
-    p2: optional per-system outer period in years (N,); defaults to the global P2."""
+def simulate(theta, noise_min=0.0, rng=None, p2=None, durations=False):
+    """theta: (N,6). Returns features in minutes; bad rows -> NaN.
+    durations=False -> (N, FEATURE_DIM)      : O-C timing residuals only (default).
+    durations=True  -> (N, FEATURE_DIM_FULL) : timing residuals then duration (TDV) residuals.
+    p2: optional per-system outer period in years (N,); defaults to the global P2.
+    Observational noise (noise_min, minutes) is applied to every column."""
     theta = np.atleast_2d(theta).astype(float)
     n = theta.shape[0]
     if p2 is None:
@@ -137,9 +177,10 @@ def simulate(theta, noise_min=0.0, rng=None, p2=None):
     else:
         out = [_simulate_one(a) for a in args]
 
-    feats = np.full((n, FEATURE_DIM), np.nan)
+    dim = FEATURE_DIM_FULL if durations else FEATURE_DIM
+    feats = np.full((n, dim), np.nan)
     for k, pair in enumerate(out):
-        f = _feature(pair)
+        f = _feature(pair, p2[k], durations=durations)
         if f is not None:
             feats[k] = f
     if noise_min > 0:
@@ -161,6 +202,11 @@ def sample_prior(n, rng=None):
 if __name__ == "__main__":
     th = sample_prior(6, np.random.default_rng(0))
     f = simulate(th, noise_min=0.5, rng=np.random.default_rng(1))
-    print("rebound", rebound.__version__, "| feature dim:", f.shape[1])
-    print("inner TTV rms (min):", np.round(np.nanstd(f[:, :N_TRANSITS_1], 1), 2))
-    print("outer TTV rms (min):", np.round(np.nanstd(f[:, N_TRANSITS_1:], 1), 2))
+    fd = simulate(th, noise_min=0.5, rng=np.random.default_rng(1), durations=True)
+    print("rebound", rebound.__version__, "| times dim:", f.shape[1], "| times+dur dim:", fd.shape[1])
+    print("inner TTV  rms (min):", np.round(np.nanstd(f[:, :N_TRANSITS_1], 1), 2))
+    print("outer TTV  rms (min):", np.round(np.nanstd(f[:, N_TRANSITS_1:], 1), 2))
+    d1 = fd[:, FEATURE_DIM:FEATURE_DIM + N_TRANSITS_1]
+    d2 = fd[:, FEATURE_DIM + N_TRANSITS_1:]
+    print("inner TDV  rms (min):", np.round(np.nanstd(d1, 1), 2))
+    print("outer TDV  rms (min):", np.round(np.nanstd(d2, 1), 2))
