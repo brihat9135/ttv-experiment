@@ -1,0 +1,11 @@
+# Proof-of-concept (what this repo actually uses)
+numpy>=1.23
+torch>=2.0          # the neural posterior estimator
+rebound>=5.0        # production symplectic N-body integrator (WHFast) — the forward model
+
+# Recommended for the full project (not required by the PoC)
+# reboundx           # extra forces (GR, tides) for the forward model
+# sbi                # neural posterior estimation toolkit (normalizing flows, SNPE/SNLE)
+# scipy              # MCMC reference posteriors, statistics
+# matplotlib         # plots (PoC renders ASCII because matplotlib/PIL is unavailable here)
+# ttvfast-python     # fast forward model for cheap regions / cross-checks

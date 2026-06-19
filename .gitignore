@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.ipynb_checkpoints/
+.venv/
+venv/
+
+# Claude project memory (local only)
+.claude/
+
+# Scratch exploration / blog-export artifacts (not part of the experiment)
+_systems.json
+_posterior.json
+ttv_explorer.html
+ttv_posterior.html
+ttv_system0.html
+ttv_system0.png
