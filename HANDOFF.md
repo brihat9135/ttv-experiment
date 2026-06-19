@@ -32,6 +32,7 @@ day-long per-system MCMC/N-body fits with fast, *calibrated* amortized inference
 | `robustness_durations.py` | **durations result vs coarser duration noise (0.5–10 min), 3 seeds.** |
 | `observables_cross_resonance.py` | **timing vs timing+durations spanning the resonance, 3 seeds.** |
 | `observables_rv.py` | **3-arm A/B/C spanning the resonance: timing / +durations / +durations+RV, 3 seeds. The k-constraint test.** |
+| `robustness_rv.py` | **RV result vs coarser RV precision (0.3–10 m/s), spanning the resonance, 3 seeds.** |
 
 Two public blog posts write this up: *Calibrated TTV Inference* (the diagnosis) and *Breaking the
 TTV Degeneracy* (the durations result), at github.com/brihat9135/brihat-ai.
@@ -94,7 +95,12 @@ simulated (θ, data) pairs to output p(θ|data). θ = (m1, m2, h1, k1, h2, k2): 
    (96–97%). Coverage holds roughly nominal but drifts mildly overconfident in the richer arm
    (90% interval: timing 0.88 to +dur+RV 0.83). → **The §3.8 prediction is confirmed:
    durations constrain h, RV constrains k, and only with BOTH does the near-resonant mass
-   degeneracy break.** ✅
+   degeneracy break.** ✅ **Robustness (`robustness_rv.py`, 3 seeds, RV noise 0.3→10 m/s vs the
+   timing+durations reference):** the near-resonance rescue degrades **gracefully and
+   monotonically** — separatrix m2 tightening 91% @0.3 m/s, 81% @1, 56% @3, washing out to 8%
+   @10 m/s (where noise meets the ~6–12 m/s signal amplitude); k2 width tracks it (0.26→0.88);
+   coverage stays flat ~0.85–0.88 (no overconfidence as precision coarsens). So the result
+   holds at realistic ESPRESSO/HARPS precision (≲1–3 m/s). ✅
 
 ## 4. Refined thesis (what the evidence supports)
 
@@ -166,11 +172,12 @@ arXiv `astro-ph.EP` check before staking novelty.
 1. ✅ **DONE, Constrain k (radial velocity):** `simulator.py` emits the star's RV curve
    (`rv=True`); `observables_rv.py` runs the 3-arm A/B/C across the resonance (§3.9). Verdict:
    RV pins **k** (and mass directly), and near-resonance mass tightening jumps from durations'
-   **16% to 83%** — confirming the §3.8 prediction. **This is the current frontier.**
-   *Next sub-steps from here:* (a) robustness of the RV result vs RV precision (0.3→3 m/s) and
-   cadence (N_RV), mirroring `robustness_durations.py`; (b) a posterior-overlay figure for the
-   near-resonant m2–k2 plane (B vs C) like `posterior_overlay.py`; (c) write it up as a third
-   post / extend the durations post.
+   **16% to 83%** — confirming the §3.8 prediction. ✅ **Robustness done** (`robustness_rv.py`):
+   the rescue degrades gracefully with RV precision (91/81/56/8% tightening @ 0.3/1/3/10 m/s),
+   holding at realistic ≲1–3 m/s. **This is the current frontier.**
+   *Next sub-steps from here:* (a) cadence sweep (vary N_RV / observing window) — does fewer RV
+   epochs still pin k? (b) a posterior-overlay figure for the near-resonant m2–k2 plane (B vs C)
+   like `posterior_overlay.py`; (c) write it up as a third post / extend the durations post.
 2. **[1 day] Flow head:** swap MDN → normalizing flow (`sbi` toolkit / neural spline flow);
    re-test cross-resonance training stability + multimodal faithfulness. (Targets the
    training-instability defect that durations did NOT fix.)
