@@ -33,6 +33,7 @@ day-long per-system MCMC/N-body fits with fast, *calibrated* amortized inference
 | `observables_cross_resonance.py` | **timing vs timing+durations spanning the resonance, 3 seeds.** |
 | `observables_rv.py` | **3-arm A/B/C spanning the resonance: timing / +durations / +durations+RV, 3 seeds. The k-constraint test.** |
 | `robustness_rv.py` | **RV result vs coarser RV precision (0.3–10 m/s), spanning the resonance, 3 seeds.** |
+| `cadence_rv.py` | **RV result vs number of RV epochs (3–30, subsampled), spanning the resonance, 3 seeds.** |
 
 Two public blog posts write this up: *Calibrated TTV Inference* (the diagnosis) and *Breaking the
 TTV Degeneracy* (the durations result), at github.com/brihat9135/brihat-ai.
@@ -100,7 +101,13 @@ simulated (θ, data) pairs to output p(θ|data). θ = (m1, m2, h1, k1, h2, k2): 
    monotonically** — separatrix m2 tightening 91% @0.3 m/s, 81% @1, 56% @3, washing out to 8%
    @10 m/s (where noise meets the ~6–12 m/s signal amplitude); k2 width tracks it (0.26→0.88);
    coverage stays flat ~0.85–0.88 (no overconfidence as precision coarsens). So the result
-   holds at realistic ESPRESSO/HARPS precision (≲1–3 m/s). ✅
+   holds at realistic ESPRESSO/HARPS precision (≲1–3 m/s). ✅ **Cadence (`cadence_rv.py`, 3
+   seeds, RV epochs subsampled 3→30 at 1 m/s):** a clean **mass-vs-k split** — mass lives in the
+   RV *amplitude*, so just **3 epochs already buy 50%** near-resonance m2 tightening (rising
+   64/74/81% at 8/15/30); but **k lives in the eccentric harmonic shape**, so k2 lags (23% @3 →
+   55% @30 epochs) and needs the dense campaign. Coverage flat ~0.85–0.88 at every cadence. →
+   **A handful of RV visits cheaply recovers most of the near-resonant MASS; fully pinning the
+   eccentricity-vector orientation (k) is what costs epochs.** ✅
 
 ## 4. Refined thesis (what the evidence supports)
 
@@ -174,10 +181,12 @@ arXiv `astro-ph.EP` check before staking novelty.
    RV pins **k** (and mass directly), and near-resonance mass tightening jumps from durations'
    **16% to 83%** — confirming the §3.8 prediction. ✅ **Robustness done** (`robustness_rv.py`):
    the rescue degrades gracefully with RV precision (91/81/56/8% tightening @ 0.3/1/3/10 m/s),
-   holding at realistic ≲1–3 m/s. **This is the current frontier.**
-   *Next sub-steps from here:* (a) cadence sweep (vary N_RV / observing window) — does fewer RV
-   epochs still pin k? (b) a posterior-overlay figure for the near-resonant m2–k2 plane (B vs C)
-   like `posterior_overlay.py`; (c) write it up as a third post / extend the durations post.
+   holding at realistic ≲1–3 m/s. ✅ **Cadence done** (`cadence_rv.py`): mass-vs-k split — 3 RV
+   epochs already buy 50% near-resonance mass tightening, but k needs the dense ~30-epoch
+   campaign (k2 23%→55%). **This is the current frontier.**
+   *Next sub-steps from here:* (a) a posterior-overlay figure for the near-resonant m2–k2 plane
+   (B vs C) like `posterior_overlay.py`; (b) write it up as a third post / extend the durations
+   post; (c) the bigger forks in §6 (flow head, jaxttv baseline parity).
 2. **[1 day] Flow head:** swap MDN → normalizing flow (`sbi` toolkit / neural spline flow);
    re-test cross-resonance training stability + multimodal faithfulness. (Targets the
    training-instability defect that durations did NOT fix.)
