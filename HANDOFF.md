@@ -18,7 +18,7 @@ day-long per-system MCMC/N-body fits with fast, *calibrated* amortized inference
 
 | File | Role |
 |---|---|
-| `simulator.py` | REBOUND (WHFast) N-body forward model; per-system P2; ejection detection; TTV feature extraction |
+| `simulator.py` | REBOUND (WHFast) N-body forward model; per-system P2; ejection detection; TTV feature extraction. **Now also emits transit DURATIONS (`durations=True` → 120-D): duration anomaly vs the circular-orbit duration; backward compatible (default 60-D timing-only).** |
 | `model.py` | Mixture Density Network = amortized neural posterior estimator |
 | `train.py`, `evaluate.py` | train the 6-D posterior; recovery + calibration (SBC/coverage) + speed |
 | `ttv_demo.py` | standalone conceptual demo (TTV signal + degeneracy valley) |
@@ -27,6 +27,13 @@ day-long per-system MCMC/N-body fits with fast, *calibrated* amortized inference
 | `cross_resonance_chaos.py` | same, giant+eccentric (strong-interaction) regime |
 | `disambiguation.py` | ABC reference vs MDN width → physical-vs-model test |
 | `tf_pretrain.py` | transformer encoder + masked pretraining → sim-to-real gap test |
+| `observables_experiment.py` | **A/B: timing-only vs timing+durations (fixed ratio). The observables test.** |
+| `posterior_overlay.py` | **before/after mass–ecc posterior figure (degeneracy ridge → tight blob).** |
+| `robustness_durations.py` | **durations result vs coarser duration noise (0.5–10 min), 3 seeds.** |
+| `observables_cross_resonance.py` | **timing vs timing+durations spanning the resonance, 3 seeds.** |
+
+Two public blog posts write this up: *Calibrated TTV Inference* (the diagnosis) and *Breaking the
+TTV Degeneracy* (the durations result), at github.com/brihat9135/brihat-ai.
 
 Method throughout: **amortized Neural Posterior Estimation (NPE)** — train a network on
 simulated (θ, data) pairs to output p(θ|data). θ = (m1, m2, h1, k1, h2, k2): two masses
@@ -58,6 +65,20 @@ simulated (θ, data) pairs to output p(θ|data). θ = (m1, m2, h1, k1, h2, k2): 
    (calErr 5.4%→2.4%, frozen encoder) but **not point accuracy** (RMSE slightly worse).
    So pretraining = a **robustness** tool, not an information tool. (Single seed —
    suggestive, not proven.)
+8. **Observables: add transit DURATIONS (`observables_experiment.py` etc.):** the lever
+   from §6, now demonstrated. Duration ≈ 2·R★/|v_y| at mid-transit measures the
+   eccentricity-vector component **h** (=e·cosϖ) almost independently of perturber mass
+   (corr(h, duration) ≈ −1). **Fixed ratio, e≤0.12:** A/B (timing vs timing+dur) on the
+   same systems/noise → mass posteriors tighten **76–81%**, h-components **94–95%**, best
+   val NLL −4.3 → −10.2, coverage stays ~nominal. ✅ **Robustness (3 seeds, duration noise
+   0.5→10 min):** survives — at 10-min precision m2 still ~half the timing-only width;
+   degrades gracefully because the signal is in the *mean* anomaly (√N averaging). ✅
+   **Across the resonance (3 seeds, ratio 1.9–2.2, e≤0.15):** durations **partially**
+   rescue the collapse: val NLL +3.6 → −1.4 (~5 nats back), h-components pinned (93–96%),
+   calibration holds, **but mass tightens only ~22%** (weakest at the separatrix) because
+   durations constrain **h, not k**; with k unconstrained the near-resonant mass stays
+   partly degenerate. → **More observables is the lever, but "more observables" ≠ "any one
+   observable": the next one must constrain k (RV, or longer baseline / more transits).**
 
 ## 4. Refined thesis (what the evidence supports)
 
@@ -66,10 +87,15 @@ simulated (θ, data) pairs to output p(θ|data). θ = (m1, m2, h1, k1, h2, k2): 
 - It fails by **unstable training** and **informativeness collapse** when spanning the
   resonance — and that collapse is **largely physical (data-limited)**, not a model defect.
 - Therefore the bottleneck for posterior *sharpness* is **observational, not algorithmic**.
+  **Now directly demonstrated (§3.8):** adding transit durations breaks the degeneracy
+  (76–81% mass tightening at fixed ratio), confirming the observational diagnosis, and
+  exposing that a *single* observable (durations) only constrains **h**, so it is a
+  partial fix near resonance until **k** is also constrained.
 - The genuine ML contributions are: **(a) amortization at survey (PLATO) scale**;
   **(b) a normalizing flow** for faithful *multimodal* posteriors + *stable training*
-  (not for tighter marginals); **(c) ingesting more observables** (transit durations TDV,
-  RV) — the real lever for information; **(d) sim-to-real robustness** via pretraining.
+  (not for tighter marginals); **(c) ingesting more observables** (transit durations TDV
+  ✅ done; still need a **k-constraining** one: RV / longer baseline), the real lever for
+  information; **(d) sim-to-real robustness** via pretraining.
 
 The original "chaos-aware emulation" framing is replaced by: **stable, faithful,
 amortized SBI that jointly exploits all observables, validated by calibration at scale.**
@@ -116,10 +142,18 @@ arXiv `astro-ph.EP` check before staking novelty.
 
 ## 7. Concrete "pick it up here" next steps
 
-1. **[½ day] Middle path:** extend `simulator.py` to emit transit *durations* (and depths);
-   add to the feature vector; rerun `disambiguation.py`-style check → does sharpness improve?
+0. ✅ **DONE, Middle path (durations):** `simulator.py` emits durations; A/B + robustness
+   + cross-resonance run (§3.8). Verdict: breaks the degeneracy at fixed ratio, partial fix
+   near resonance (h yes, k no). Two posts published. **This is the current frontier.**
+1. **[next, ½–1 day] Constrain k:** durations only pin **h**, so near-resonant mass is still
+   half-degenerate. Add a **k-sensitive observable** to the forward model: radial velocity
+   (an RV semi-amplitude per planet pins mass+e largely independently) is the cleanest, or a
+   longer baseline / more transits. Re-run `observables_cross_resonance.py`-style A/B and
+   check whether the near-resonance mass tightening jumps from ~22% toward the ~80% seen at
+   fixed ratio. *This is the direct sequel to §3.8.*
 2. **[1 day] Flow head:** swap MDN → normalizing flow (`sbi` toolkit / neural spline flow);
-   re-test cross-resonance training stability + multimodal faithfulness.
+   re-test cross-resonance training stability + multimodal faithfulness. (Targets the
+   training-instability defect that durations did NOT fix.)
 3. **[1 day] Baseline parity:** install `jaxttv`; get an HMC posterior on one real-ish
    near-resonance system; compare width/shape to our amortized posterior (gold-standard check).
 4. **[½ day] Firm up §3.7:** rerun sim-to-real arms across 3–5 seeds → is the 5.4%→2.4%
