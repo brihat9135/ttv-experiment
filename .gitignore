@@ -12,7 +12,9 @@ venv/
 # Scratch exploration / blog-export artifacts (not part of the experiment)
 _systems.json
 _posterior.json
+_overlay.json
 ttv_explorer.html
 ttv_posterior.html
 ttv_system0.html
 ttv_system0.png
+ttv_overlay.html
