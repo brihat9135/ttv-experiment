@@ -24,9 +24,19 @@ depends mainly on a planet's OWN orbital speed (set by its eccentricity), which
 constrains eccentricity largely independently of the perturber mass -- the lever that
 breaks the mass-eccentricity degeneracy the timing amplitude alone cannot.
 
-Public API: simulate(theta, noise_min, rng, p2, durations), sample_prior(n, rng), and
-the THETA_*/FEATURE_DIM/FEATURE_DIM_FULL/N_TRANSITS_* constants. REBOUND runs one
-system per process, so simulate() parallelizes across rows for batch generation.
+With rv=True, simulate() additionally emits the star's RADIAL-VELOCITY curve: the
+line-of-sight reflex velocity of the star (observer along +x, so RV = star's v_x in the
+COM frame) sampled on a fixed epoch grid over the baseline, in m/s, mean-subtracted (the
+systemic velocity is an unknown nuisance, fit out in practice). Unlike a duration -- a
+single mid-transit speed that mostly pins the e-vector component h (=e cos w) -- the RV
+curve's HARMONIC SHAPE (eccentric skew) and phase encode the FULL e-vector, so RV pins
+k (=e sin w) too. That is the missing lever: durations constrain h, RV constrains k, and
+near the 2:1 resonance the mass stays degenerate until BOTH are constrained.
+
+Public API: simulate(theta, noise_min, rng, p2, durations, rv, rv_noise_ms),
+sample_prior(n, rng), and the THETA_*/FEATURE_DIM/FEATURE_DIM_FULL/FEATURE_DIM_RV/
+N_TRANSITS_*/N_RV constants. REBOUND runs one system per process, so simulate()
+parallelizes across rows for batch generation.
 """
 import os
 import numpy as np
@@ -51,6 +61,12 @@ N_TRANSITS_2 = 20            # outer-planet transits used in the feature
 FEATURE_DIM = N_TRANSITS_1 + N_TRANSITS_2          # times-only feature (default)
 DURATION_DIM = N_TRANSITS_1 + N_TRANSITS_2         # one duration residual per transit
 FEATURE_DIM_FULL = FEATURE_DIM + DURATION_DIM      # times + durations (durations=True)
+N_RV = 30                                          # radial-velocity samples over the baseline
+RV_DIM = N_RV
+RV_EPOCHS = np.linspace(0.0, BASELINE, N_RV)       # fixed RV cadence (years)
+FEATURE_DIM_RV = FEATURE_DIM + DURATION_DIM + RV_DIM  # times + durations + RV (durations & rv)
+# 1 AU/yr in m/s: line-of-sight reflex velocity unit conversion
+AU_YR_TO_MS = 1.495978707e11 / (365.25 * 86400.0)  # ~4740.57 m/s per AU/yr
 
 # ----- priors on the inferred parameters -----
 M1_LO, M1_HI = 3.0, 15.0      # M_earth
@@ -73,10 +89,12 @@ def _add_planet(sim, m_earth, P, h, k, phase):
 
 
 def _simulate_one(args):
-    """Run one REBOUND system; return (times1, times2, durs1, durs2) in years, or None
-    if too few transits. durs_i are per-transit durations 2*R_STAR/|v_y| at mid-transit.
-    args = (m1, m2, h1, k1, h2, k2, P2_years) — P2 is per-system (allows ratio sweeps)."""
-    m1, m2, h1, k1, h2, k2, P2_i = args
+    """Run one REBOUND system; return (times1, times2, durs1, durs2, rv) in years, or None
+    if too few transits. durs_i are per-transit durations 2*R_STAR/|v_y| at mid-transit; rv
+    is the star's line-of-sight reflex velocity (AU/yr) interpolated onto RV_EPOCHS, or None
+    if rv not requested. args = (m1, m2, h1, k1, h2, k2, P2_years, collect_rv) — P2 is
+    per-system (allows ratio sweeps)."""
+    m1, m2, h1, k1, h2, k2, P2_i, collect_rv = args
     sim = rebound.Simulation()
     sim.G = G
     sim.add(m=MSUN)
@@ -92,13 +110,21 @@ def _simulate_one(args):
     tmax = BASELINE * 1.8
     times = [[], []]
     durs = [[], []]
+    rv_t, rv_v = [], []       # star's line-of-sight (v_x) reflex velocity samples over [0, BASELINE]
     need = (N_TRANSITS_1, N_TRANSITS_2)
     ESCAPE2 = 9.0      # (3 AU)^2: bound (even eccentric) orbits stay well below; ejections exceed it
-    while (len(times[0]) < need[0] or len(times[1]) < need[1]) and sim.t < tmax:
+    # collect transits until both planets have enough; if rv, also cover the baseline for RV sampling
+    def more_needed():
+        if len(times[0]) < need[0] or len(times[1]) < need[1]:
+            return True
+        return collect_rv and sim.t < BASELINE
+    while more_needed() and sim.t < tmax:
         try:
             sim.integrate(sim.t + STEP)
         except Exception:
             return None                      # integrator blew up (collision / escape) -> unstable
+        if collect_rv and sim.t <= BASELINE:
+            rv_t.append(sim.t); rv_v.append(ps[0].vx)   # COM-frame star velocity = reflex RV
         for idx, pi in enumerate((1, 2)):
             x_new = ps[pi].x - ps[0].x
             y_new = ps[pi].y - ps[0].y
@@ -116,8 +142,13 @@ def _simulate_one(args):
 
     if len(times[0]) < need[0] or len(times[1]) < need[1]:
         return None
+    rv = None
+    if collect_rv:
+        if len(rv_t) < 2 or rv_t[-1] < BASELINE * 0.99:
+            return None                      # insufficient RV coverage of the baseline
+        rv = np.interp(RV_EPOCHS, np.array(rv_t), np.array(rv_v))
     return (np.array(times[0][:need[0]]), np.array(times[1][:need[1]]),
-            np.array(durs[0][:need[0]]),  np.array(durs[1][:need[1]]))
+            np.array(durs[0][:need[0]]),  np.array(durs[1][:need[1]]), rv)
 
 
 def _oc(times, n):
@@ -145,30 +176,41 @@ def _dur_anom(durs, n, P):
     return (durs - _circ_duration(P)) / MIN
 
 
-def _feature(pair, p2_i, durations=False):
+def _feature(pair, p2_i, durations=False, rv=False):
     if pair is None:
         return None
-    t1, t2, d1, d2 = pair
-    feat = np.concatenate([_oc(t1, N_TRANSITS_1), _oc(t2, N_TRANSITS_2)])
-    if not durations:
-        return feat
-    dur = np.concatenate([_dur_anom(d1, N_TRANSITS_1, P1), _dur_anom(d2, N_TRANSITS_2, p2_i)])
-    return np.concatenate([feat, dur])
+    t1, t2, d1, d2, rv_v = pair
+    parts = [_oc(t1, N_TRANSITS_1), _oc(t2, N_TRANSITS_2)]
+    if durations:
+        parts.append(_dur_anom(d1, N_TRANSITS_1, P1))
+        parts.append(_dur_anom(d2, N_TRANSITS_2, p2_i))
+    if rv:
+        rv_ms = rv_v * AU_YR_TO_MS                 # AU/yr -> m/s
+        parts.append(rv_ms - rv_ms.mean())         # drop the unknown systemic velocity
+    return np.concatenate(parts)
 
 
-def simulate(theta, noise_min=0.0, rng=None, p2=None, durations=False):
-    """theta: (N,6). Returns features in minutes; bad rows -> NaN.
-    durations=False -> (N, FEATURE_DIM)      : O-C timing residuals only (default).
-    durations=True  -> (N, FEATURE_DIM_FULL) : timing residuals then duration (TDV) residuals.
+def _feature_dim(durations, rv):
+    return FEATURE_DIM + (DURATION_DIM if durations else 0) + (RV_DIM if rv else 0)
+
+
+def simulate(theta, noise_min=0.0, rng=None, p2=None, durations=False, rv=False,
+             rv_noise_ms=1.0):
+    """theta: (N,6). Returns features (timing/duration columns in minutes, RV columns in
+    m/s); bad rows -> NaN. Columns are laid out as [timing | durations? | rv?]:
+    durations=False, rv=False -> (N, FEATURE_DIM)       : O-C timing residuals only (default).
+    durations=True,  rv=False -> (N, FEATURE_DIM_FULL)  : timing then duration (TDV) residuals.
+    durations=True,  rv=True  -> (N, FEATURE_DIM_RV)    : timing, durations, then RV (m/s).
     p2: optional per-system outer period in years (N,); defaults to the global P2.
-    Observational noise (noise_min, minutes) is applied to every column."""
+    noise_min (minutes) is added to the timing+duration columns; rv_noise_ms (m/s) to the
+    RV columns."""
     theta = np.atleast_2d(theta).astype(float)
     n = theta.shape[0]
     if p2 is None:
         p2 = np.full(n, P2)
     else:
         p2 = np.asarray(p2, dtype=float)
-    args = [(*theta[i], p2[i]) for i in range(n)]
+    args = [(*theta[i], p2[i], rv) for i in range(n)]
 
     if n >= 64 and _MAXPROC > 1:
         import multiprocessing as mp
@@ -177,15 +219,19 @@ def simulate(theta, noise_min=0.0, rng=None, p2=None, durations=False):
     else:
         out = [_simulate_one(a) for a in args]
 
-    dim = FEATURE_DIM_FULL if durations else FEATURE_DIM
+    dim = _feature_dim(durations, rv)
     feats = np.full((n, dim), np.nan)
     for k, pair in enumerate(out):
-        f = _feature(pair, p2[k], durations=durations)
+        f = _feature(pair, p2[k], durations=durations, rv=rv)
         if f is not None:
             feats[k] = f
-    if noise_min > 0:
+    if noise_min > 0 or (rv and rv_noise_ms > 0):
         rng = rng or np.random.default_rng()
-        feats = feats + rng.normal(0.0, noise_min, size=feats.shape)
+        n_time_dur = FEATURE_DIM + (DURATION_DIM if durations else 0)
+        if noise_min > 0:
+            feats[:, :n_time_dur] += rng.normal(0.0, noise_min, size=(n, n_time_dur))
+        if rv and rv_noise_ms > 0:
+            feats[:, n_time_dur:] += rng.normal(0.0, rv_noise_ms, size=(n, RV_DIM))
     return feats
 
 
@@ -203,10 +249,14 @@ if __name__ == "__main__":
     th = sample_prior(6, np.random.default_rng(0))
     f = simulate(th, noise_min=0.5, rng=np.random.default_rng(1))
     fd = simulate(th, noise_min=0.5, rng=np.random.default_rng(1), durations=True)
-    print("rebound", rebound.__version__, "| times dim:", f.shape[1], "| times+dur dim:", fd.shape[1])
+    frv = simulate(th, noise_min=0.5, rng=np.random.default_rng(1), durations=True, rv=True)
+    print("rebound", rebound.__version__, "| times dim:", f.shape[1],
+          "| times+dur dim:", fd.shape[1], "| times+dur+rv dim:", frv.shape[1])
     print("inner TTV  rms (min):", np.round(np.nanstd(f[:, :N_TRANSITS_1], 1), 2))
     print("outer TTV  rms (min):", np.round(np.nanstd(f[:, N_TRANSITS_1:], 1), 2))
     d1 = fd[:, FEATURE_DIM:FEATURE_DIM + N_TRANSITS_1]
     d2 = fd[:, FEATURE_DIM + N_TRANSITS_1:]
     print("inner TDV  rms (min):", np.round(np.nanstd(d1, 1), 2))
     print("outer TDV  rms (min):", np.round(np.nanstd(d2, 1), 2))
+    rvcols = frv[:, FEATURE_DIM_FULL:]
+    print("star RV semi-amp (m/s):", np.round((np.nanmax(rvcols, 1) - np.nanmin(rvcols, 1)) / 2, 2))
