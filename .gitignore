@@ -13,6 +13,8 @@ venv/
 _systems.json
 _posterior.json
 _overlay.json
+_overlay_rv.json
+posterior_overlay_rv.png
 ttv_explorer.html
 ttv_posterior.html
 ttv_system0.html

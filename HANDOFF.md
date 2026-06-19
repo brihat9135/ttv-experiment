@@ -34,6 +34,7 @@ day-long per-system MCMC/N-body fits with fast, *calibrated* amortized inference
 | `observables_rv.py` | **3-arm A/B/C spanning the resonance: timing / +durations / +durations+RV, 3 seeds. The k-constraint test.** |
 | `robustness_rv.py` | **RV result vs coarser RV precision (0.3–10 m/s), spanning the resonance, 3 seeds.** |
 | `cadence_rv.py` | **RV result vs number of RV epochs (3–30, subsampled), spanning the resonance, 3 seeds.** |
+| `posterior_overlay_rv.py` | **before/after m2–k2 posterior figure for one separatrix system: +durations ridge → +RV blob (`posterior_overlay_rv.png`).** |
 
 Two public blog posts write this up: *Calibrated TTV Inference* (the diagnosis) and *Breaking the
 TTV Degeneracy* (the durations result), at github.com/brihat9135/brihat-ai.
@@ -184,9 +185,11 @@ arXiv `astro-ph.EP` check before staking novelty.
    holding at realistic ≲1–3 m/s. ✅ **Cadence done** (`cadence_rv.py`): mass-vs-k split — 3 RV
    epochs already buy 50% near-resonance mass tightening, but k needs the dense ~30-epoch
    campaign (k2 23%→55%). **This is the current frontier.**
-   *Next sub-steps from here:* (a) a posterior-overlay figure for the near-resonant m2–k2 plane
-   (B vs C) like `posterior_overlay.py`; (b) write it up as a third post / extend the durations
-   post; (c) the bigger forks in §6 (flow head, jaxttv baseline parity).
+   ✅ **Figure done** (`posterior_overlay_rv.py` → `posterior_overlay_rv.png`): one separatrix
+   system (e2 purely in k2) shows the +durations posterior as a wide m2–k2 ridge collapsing to a
+   tight +RV blob at truth (m2 std 8.5→1.2 M⊕, k2 std 0.055→0.026).
+   *Next sub-steps from here:* (a) write it up as a third post / extend the durations post;
+   (b) the bigger forks in §6 (flow head, jaxttv baseline parity).
 2. **[1 day] Flow head:** swap MDN → normalizing flow (`sbi` toolkit / neural spline flow);
    re-test cross-resonance training stability + multimodal faithfulness. (Targets the
    training-instability defect that durations did NOT fix.)
