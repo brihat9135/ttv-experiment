@@ -220,3 +220,15 @@ arXiv `astro-ph.EP` check before staking novelty.
 - **Reproducibility:** key results are single-seed; multi-seed before any write-up.
 - **Sim-to-real gap was small** in our synthetic test — the robustness motivation is real
   but modest; validate on actual Kepler systematics before over-investing.
+- **Geometry idealization (edge-on + coplanar):** the simulator fixes `i = 90°` with the
+  line of sight along x, so RV amplitude maps to the TRUE mass, not `m·sin i` — the real
+  mass–inclination degeneracy is switched off, making the RV mass constraint (R²≈0.99, 83%
+  tightening) modestly optimistic. For **transiting** systems this is minor by construction:
+  a transit already forces `i` within ~`R★/a` of 90°, so `sin i ≈ 1` to sub-percent (e.g.
+  i=87° → 0.14% amplitude, below the ~1 m/s floor); a real analysis would marginalize `i`
+  via the transit impact parameter and barely move the numbers. The more consequential
+  simplification is **coplanarity** — both planets share a plane with zero mutual
+  inclination, so the model omits nodal precession and the out-of-plane duration/depth
+  variations it drives (our durations/depth channels miss a real signal source rather than
+  invent one). Relative claim (RV breaks the degeneracy timing+durations can't) is
+  unaffected; absolute tightness is slightly flattering. Note this before any write-up.
