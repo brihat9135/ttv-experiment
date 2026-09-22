@@ -252,6 +252,126 @@ system is a single forward pass.
   predict robust **summary statistics** (TTV amplitude, super-period, chopping) rather
   than raw times. Borrow **SPOCK-style features** as inputs and as a stability prefilter.
 
+### PoC architecture in detail (`model.py`)
+
+The current MDN is a shared MLP trunk feeding three output heads that together parametrize
+a 24-component Gaussian mixture over the 6-D parameter vector `θ = (m1, m2, h1, k1, h2, k2)`.
+The example below uses the full timing + durations + RV arm (`in_dim = 151`); `in_dim` is
+61 (timing-only), 121 (+durations), or 151 (+durations+RV), always with the period ratio
+appended as the trailing conditioning input. `B` = batch size, `K = n_comp = 24`.
+
+```
+════════════════════════════════════════════════════════════════════════════════
+   MDN  —  Amortized Neural Posterior Estimator  (model.py)
+   Concrete example: timing + durations + RV arm.  B = batch size
+════════════════════════════════════════════════════════════════════════════════
+
+INPUT  X                      the observed data vector, one per system
+┌──────────────────────────────────────────────────────────────────┐
+│  60 timing (O-C, min) │ 60 durations (TDV, min) │ 30 RV (m/s) │ 1 │   shape (B, 151)
+└──────────────────────────────────────────────────────────────────┘
+        └── the trailing "1" is the appended period ratio (conditioning input)
+        (in_dim = 61 timing-only  |  121 +durations  |  151 +durations+RV)
+                              │
+                              ▼
+┌──────────────────────── BODY  (MLP, shared trunk) ───────────────────────┐
+│                                                                          │
+│   Linear(151 → 256)   ──►  ReLU                          (B, 256)        │
+│   Linear(256 → 256)   ──►  ReLU                          (B, 256)        │
+│   Linear(256 → 256)   ──►  ReLU                          (B, 256)        │
+│   Linear(256 → 256)   ──►  ReLU                          (B, 256)        │
+│                                                                          │
+│   ReLU(z) = max(0, z)   — the nonlinearity; without it the 4 Linear      │
+│   layers would collapse into one. Turns X into a 256-d feature h.        │
+└──────────────────────────────────────────────────────────────────────────┘
+                              │
+                        h  (B, 256)          shared representation
+                              │
+          ┌───────────────────┼───────────────────┐
+          ▼                   ▼                   ▼
+┌──────────────────┐ ┌──────────────────┐ ┌──────────────────────┐
+│  HEAD 1: logits  │ │  HEAD 2: means   │ │  HEAD 3: logstd      │
+│  Linear(256→24)  │ │ Linear(256→144)  │ │  Linear(256→144)     │
+│                  │ │   =24×6          │ │    =24×6             │
+│  (B, 24)         │ │  (B, 144)        │ │   (B, 144)           │
+│      │           │ │      │           │ │       │              │
+│  log_softmax     │ │  reshape         │ │  reshape             │
+│   (dim = -1)     │ │  →(B,24,6)       │ │  →(B,24,6)           │
+│      │           │ │      │           │ │       │              │
+│      ▼           │ │      ▼           │ │  clamp(-7, 3)        │
+│  log_w           │ │  mu              │ │       │              │
+│  (B, 24)         │ │  (B, 24, 6)      │ │       ▼              │
+│                  │ │                  │ │  log_sigma           │
+│  24 mixture      │ │  center of each  │ │  (B, 24, 6)          │
+│  weights,        │ │  of 24 blobs,    │ │  σ = exp(log_sigma)  │
+│  Σ = 1           │ │  each a 6-D pt   │ │  width of each blob  │
+└──────────────────┘ └──────────────────┘ └──────────────────────┘
+   (probabilities)      (any real value)      (positive, via exp)
+          │                   │                   │
+          └───────────────────┼───────────────────┘
+                              ▼
+        ╔═══════════════════════════════════════════════════════╗
+        ║   OUTPUT:  24-component Gaussian mixture over θ ∈ ℝ⁶   ║
+        ║                                                       ║
+        ║   p(θ | X) = Σ  w_k · N( θ ; mu_k , diag(σ_k²) )      ║
+        ║             k=1..24                                   ║
+        ║                                                       ║
+        ║   θ = (m1, m2, h1, k1, h2, k2)   ← the 6 unknowns     ║
+        ╚═══════════════════════════════════════════════════════╝
+                              │
+             ┌────────────────┴─────────────────┐
+             ▼                                  ▼
+   TRAINING: loss (nll)                SAMPLING (inference)
+┌───────────────────────────────┐   ┌───────────────────────────────┐
+│ label = θ_true  (B, 6)        │   │ pick blob k ~ Categorical(w)  │
+│ one point, NOT a distribution │   │ draw θ = mu_k + σ_k · ε        │
+│                               │   │   ε ~ N(0, I)                  │
+│ per component:                │   │ → posterior samples (B, n, 6)  │
+│  log N(θ; mu_k, σ_k)          │   │ (the point cloud in the        │
+│ combine over 24 comps:        │   │  m2–k2 overlay figure)         │
+│  logsumexp(log_w + log_comp)  │   └───────────────────────────────┘
+│ = log p(θ_true | X)           │
+│                               │
+│  LOSS = − mean log p(θ|X)     │  ← negative log-likelihood
+│  "make the blob dense at      │     minimized by Adam + grad clip
+│   the true θ"                 │
+└───────────────────────────────┘
+
+────────────────────────────────────────────────────────────────────────────────
+ Hyperparameters (model.py):  hidden = 256,  n_comp (K) = 24,  theta_dim = 6
+ Activations:  ReLU (body) · log_softmax (weights) · exp after clamp (widths)
+ Heads left raw:  means (centers can be any value)
+────────────────────────────────────────────────────────────────────────────────
+```
+
+The same architecture as a Mermaid flowchart (renders natively on GitHub):
+
+```mermaid
+flowchart TD
+    X["INPUT X  (B, 151)<br/>60 timing (O-C, min) | 60 durations (TDV, min) | 30 RV (m/s) | 1 period ratio<br/>in_dim = 61 timing-only / 121 +durations / 151 +durations+RV"]
+
+    subgraph BODY["BODY — MLP shared trunk"]
+        L1["Linear(151 to 256)"] --> R1["ReLU"]
+        R1 --> L2["Linear(256 to 256)"] --> R2["ReLU"]
+        R2 --> L3["Linear(256 to 256)"] --> R3["ReLU"]
+        R3 --> L4["Linear(256 to 256)"] --> R4["ReLU"]
+    end
+
+    X --> L1
+    R4 --> H["h  (B, 256)<br/>shared representation"]
+
+    H --> W["HEAD 1: logits<br/>Linear(256 to 24)<br/>log_softmax → log_w (B, 24)<br/>24 mixture weights, sum = 1"]
+    H --> M["HEAD 2: means<br/>Linear(256 to 144)<br/>reshape → mu (B, 24, 6)<br/>blob centers, raw (any value)"]
+    H --> S["HEAD 3: logstd<br/>Linear(256 to 144)<br/>reshape, clamp(-7, 3), exp → sigma (B, 24, 6)<br/>blob widths, positive"]
+
+    W --> MIX["OUTPUT: 24-component Gaussian mixture over theta in R^6<br/>p(theta | X) = sum_k w_k · N(theta; mu_k, diag(sigma_k^2))<br/>theta = (m1, m2, h1, k1, h2, k2)"]
+    M --> MIX
+    S --> MIX
+
+    MIX --> TRAIN["TRAINING: loss (nll)<br/>label = theta_true (B, 6), one point<br/>logsumexp(log_w + log N(theta; mu_k, sigma_k))<br/>LOSS = − mean log p(theta | X)"]
+    MIX --> SAMPLE["SAMPLING: inference<br/>pick blob k ~ Categorical(w)<br/>theta = mu_k + sigma_k · epsilon, epsilon ~ N(0, I)<br/>→ posterior samples (B, n, 6)"]
+```
+
 **Validation is part of the model, not an afterthought:** simulation-based calibration
 (SBC) + coverage tests on every release, plus head-to-head against N-body MCMC on the
 benchmark systems above.
