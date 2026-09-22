@@ -385,14 +385,25 @@ benchmark systems above.
 
 ## 6. Roadmap
 
+Updated to reflect what actually happened: after the 6-param model the project pivoted
+into a **resonance diagnosis** and an **observables program** (durations + RV) that the
+original plan did not anticipate. That pivot is the real work of the last cycle and the
+current frontier; the flow head, baseline parity, and real-data validation remain open.
+
 | Phase | Deliverable | Status |
 |---|---|---|
 | **0. PoC** | 2-planet, 2-param, MDN, calibrated, fast, **REBOUND N-body** | ✅ **done** |
-| **1. Full element vector** | ✅ REBOUND/WHFast + **6-param θ=(m₁,m₂,h₁,k₁,h₂,k₂)**, both planets transit, calibrated across all 6 | ✅ **done (this repo)** |
-| 2. Flow + encoder | `sbi` normalizing-flow posterior + set/transformer encoder; variable planet count; TTVFast cross-checks | next |
-| 3. Resonant regime | oversample + explicitly model chaotic systems; stochastic-simulator treatment | core novelty |
-| 4. Real-data validation | run on Kepler-9 / TRAPPIST-1 etc.; match published MCMC posteriors; SBC at scale | |
-| 5. Survey scale | batch-apply to TESS/PLATO catalogs; release tool + paper | |
+| **1. Full element vector** | REBOUND/WHFast + **6-param θ=(m₁,m₂,h₁,k₁,h₂,k₂)**, both planets transit, calibrated across all 6 | ✅ **done** |
+| **2. Resonance diagnosis** | swept toward 2:1; calibration stays robust (fails by *informativeness collapse* + *unstable training*, **not** overconfidence); disambiguation shows the collapse is **physical / data-limited**, not a model defect | ✅ **done** |
+| **3. Observables program** | add transit **durations** (pin *h*) and **radial velocity** (pin *k* + mass) to the forward model; 3-arm A/B/C across the resonance + robustness + cadence studies | ✅ **done — breaks the near-resonance mass degeneracy, 16%→83% tightening** |
+| 4. Flow head | swap MDN → `sbi` normalizing flow; fix the **training instability** durations/RV did *not* | **next (top ML fork)** |
+| 5. Baseline parity | install `jaxttv`; HMC posterior on a near-resonance system; compare width/shape to our amortized posterior (gold-standard check) | pending |
+| 6. Encoder + real data | set/transformer encoder (variable-length, variable planet count); run Kepler-9 / TRAPPIST-1; match published MCMC; SBC at scale; TTVFast cross-checks | pending |
+| 7. Survey scale | batch-apply to TESS/PLATO catalogs; release tool + paper | pending |
+
+*(A "stochastic-simulator" treatment of strong chaos was in the original plan but proved
+unnecessary here: instability stayed ~0% and the 2:1 resonance was dynamically protective,
+so the regime never fractured into non-deterministic TTVs at these masses/eccentricities.)*
 
 ## 7. Honest caveats
 - The PoC's speed-up is measured against a *coarse* 572-sim grid; a fair comparison to a
