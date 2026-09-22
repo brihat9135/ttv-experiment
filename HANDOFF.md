@@ -41,9 +41,9 @@ TTV Degeneracy* (the durations result), at github.com/brihat9135/brihat-ai. The 
 now carries a short **closing update on the RV/k result** (§3.9) rather than a third post (RV
 breaking the mass degeneracy is standard physics, not its own-post-worthy).
 
-**Repos pushed and in sync (2026-06-19):** code at github.com/brihat9135/ttv-experiment
-(`main` @ `4fec8b6` — RV observable, robustness, cadence, m2–k2 overlay) and the blog at
-github.com/brihat9135/brihat-ai (`main` @ `843291a` — durations post RV update).
+**Repos pushed and in sync (2026-09-22):** code at github.com/brihat9135/ttv-experiment
+(`main` @ `e964741` — RV observable, robustness, cadence, m2–k2 overlay, §8 geometry caveat)
+and the blog at github.com/brihat9135/brihat-ai (`main` @ `843291a` — durations post RV update).
 
 Method throughout: **amortized Neural Posterior Estimation (NPE)** — train a network on
 simulated (θ, data) pairs to output p(θ|data). θ = (m1, m2, h1, k1, h2, k2): two masses
