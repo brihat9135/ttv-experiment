@@ -112,6 +112,71 @@ def train_eval(use_rv, rv_noise, data, seed):
     return ratio_all, cov90, ratio_sep
 
 
+def make_figure(ref, rv):
+    """Two panels: near-resonance m2 tightening vs RV precision, and k2 width vs precision."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    def mean(d, key, idx): return np.array(d[key])[:, idx].mean()
+    def std(d, key, idx):  return np.array(d[key])[:, idx].std()
+
+    noises = RV_NOISES
+    ref_sep = mean(ref, "sep", 1)
+    ref_k2  = mean(ref, "all", 5)
+    m2_tight = [(1 - mean(rv[n], "sep", 1) / ref_sep) * 100 for n in noises]
+    k2_width = [mean(rv[n], "all", 5) for n in noises]
+    k2_err   = [std(rv[n], "all", 5) for n in noises]
+    cov_m2   = [mean(rv[n], "cov", 1) for n in noises]
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11.5, 4.6))
+
+    ax1.plot(noises, m2_tight, "o-", color="#1f6fb2", lw=2.2, ms=8)
+    for x, y in zip(noises, m2_tight):
+        ax1.annotate(f"{y:.0f}%", (x, y), textcoords="offset points", xytext=(0, 9),
+                     ha="center", fontsize=9, fontweight="bold", color="#1f6fb2")
+    ax1.axhline(0, color="#c44e52", ls="--", lw=1.2, label="timing+durations (ref)")
+    ax1.set_xscale("log")
+    ax1.set_xticks(noises); ax1.set_xticklabels([f"{n:g}" for n in noises])
+    ax1.set_xlabel("RV precision (m/s)  —  coarser →")
+    ax1.set_ylabel("near-resonance m2 tightening (%)")
+    ax1.set_title("Mass rescue degrades gracefully with RV noise")
+    ax1.set_ylim(-8, 100); ax1.grid(alpha=0.25); ax1.legend(fontsize=8.5, loc="upper right")
+
+    ax2.errorbar(noises, k2_width, yerr=k2_err, fmt="s-", color="#4c8c4a", lw=2.2, ms=7, capsize=3)
+    ax2.axhline(ref_k2, color="#c44e52", ls="--", lw=1.2, label=f"timing+dur k2 ({ref_k2:.2f})")
+    ax2.set_xscale("log")
+    ax2.set_xticks(noises); ax2.set_xticklabels([f"{n:g}" for n in noises])
+    ax2.set_xlabel("RV precision (m/s)  —  coarser →")
+    ax2.set_ylabel("k2 posterior/prior width  (smaller = sharper)")
+    ax2.set_title("k2 constraint widens back toward the reference")
+    ax2.grid(alpha=0.25); ax2.legend(fontsize=8.5, loc="lower right")
+    for x, c in zip(noises, cov_m2):
+        ax2.annotate(f"cov {c:.2f}", (x, k2_width[noises.index(x)]),
+                     textcoords="offset points", xytext=(0, -14), ha="center",
+                     fontsize=7.5, color="#555")
+
+    fig.suptitle("RV-precision robustness across the 2:1 resonance (3 seeds)",
+                 fontsize=13, fontweight="bold")
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
+    fig.savefig("robustness_rv.png", dpi=145)
+    print("  wrote robustness_rv.png")
+
+
+def dump_json(ref, rv):
+    import json
+    def mean(d, key, idx): return round(float(np.array(d[key])[:, idx].mean()), 4)
+    ref_sep = mean(ref, "sep", 1)
+    out = {"rv_noises": RV_NOISES, "ref_m2_sep": ref_sep,
+           "ref_k2_all": mean(ref, "all", 5), "ref_cov_m2": mean(ref, "cov", 1),
+           "per_noise": {str(n): {
+               "m2_tighten_pct": round((1 - mean(rv[n], "sep", 1) / ref_sep) * 100, 1),
+               "m2_sep_width": mean(rv[n], "sep", 1), "k2_all_width": mean(rv[n], "all", 5),
+               "cov_m2": mean(rv[n], "cov", 1)} for n in RV_NOISES}}
+    json.dump(out, open("_robustness_rv.json", "w"), indent=2)
+    print("  wrote _robustness_rv.json")
+
+
 def main():
     print(f"Device: {DEVICE}. RV-precision robustness across the resonance (3 seeds).")
     print(f"  timing/dur fixed {TIME_NOISE} min; RV noise swept {RV_NOISES} m/s.")
@@ -151,6 +216,8 @@ def main():
     for n in RV_NOISES:
         print(f"    +RV @ {n:>4.1f} m/s : {(1 - m(rv[n],'sep',1)/rsep)*100:3.0f}%")
     print("\n  (RV uniquely pins k2; watch k2 widen back toward the reference as precision coarsens)")
+    dump_json(ref, rv)
+    make_figure(ref, rv)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TTV mass inference — project walkthrough</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+  window.addEventListener('load', function () {
+    if (window.mermaid) { mermaid.initialize({ startOnLoad: true, securityLevel: 'loose' }); }
+  });
+</script>
+<style>
+  :root {
+    --ink:#1c2330; --muted:#5b6472; --line:#e2e6ec; --bg:#f7f8fa; --card:#ffffff;
+    --blue:#1f6fb2; --green:#2e7d32; --red:#c0392b; --amber:#b9770e;
+    --code:#0f2233; --codebg:#0e1726;
+  }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+  .wrap { display:grid; grid-template-columns:250px 1fr; max-width:1200px; margin:0 auto; }
+  nav { position:sticky; top:0; align-self:start; height:100vh; overflow:auto;
+    padding:26px 18px; border-right:1px solid var(--line); background:var(--card); font-size:14px; }
+  nav h2 { font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:18px 0 8px; }
+  nav a { display:block; color:var(--ink); text-decoration:none; padding:3px 0; }
+  nav a:hover { color:var(--blue); }
+  main { padding:40px 48px 120px; min-width:0; }
+  h1 { font-size:30px; line-height:1.25; margin:0 0 6px; }
+  h2 { font-size:23px; margin:52px 0 12px; padding-top:10px; border-top:2px solid var(--line); }
+  h3 { font-size:18px; margin:30px 0 8px; color:var(--blue); }
+  h4 { font-size:15px; margin:18px 0 4px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  p, li { color:#2a3140; }
+  .lead { font-size:18px; color:var(--muted); }
+  code { font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:.9em;
+    background:#eef1f5; padding:1px 5px; border-radius:4px; color:var(--code); }
+  pre { background:var(--codebg); color:#dbe6f2; padding:16px 18px; border-radius:10px; overflow:auto;
+    font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; font-size:12.5px; line-height:1.5; }
+  pre code { background:none; color:inherit; padding:0; }
+  table { border-collapse:collapse; width:100%; margin:14px 0; font-size:14.5px; }
+  th, td { border:1px solid var(--line); padding:8px 11px; text-align:left; vertical-align:top; }
+  th { background:#eef1f5; font-weight:600; }
+  tr:nth-child(even) td { background:#fafbfc; }
+  figure { margin:20px 0; }
+  figure img { width:100%; border:1px solid var(--line); border-radius:10px; background:#fff; }
+  figcaption { font-size:13.5px; color:var(--muted); margin-top:8px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px 22px; margin:18px 0; }
+  .callout { border-left:4px solid var(--blue); background:#eef5fb; padding:12px 16px; border-radius:0 8px 8px 0; margin:16px 0; }
+  .callout.win { border-color:var(--green); background:#eef7ee; }
+  .callout.warn { border-color:var(--amber); background:#fdf6ea; }
+  .callout b { color:var(--ink); }
+  .pill { display:inline-block; font-size:12px; font-weight:600; padding:2px 9px; border-radius:20px; }
+  .done { background:#e3f3e3; color:var(--green); }
+  .todo { background:#eceef1; color:var(--muted); }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .kpi { font-size:15px; }
+  .kpi b { color:var(--blue); font-size:17px; }
+  .muted { color:var(--muted); }
+  .anchor { display:block; position:relative; top:-20px; visibility:hidden; }
+  hr { border:none; border-top:1px solid var(--line); margin:30px 0; }
+  @media (max-width:880px){ .wrap{grid-template-columns:1fr;} nav{position:static;height:auto;border-right:none;border-bottom:1px solid var(--line);} main{padding:26px;} .grid2{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav>
+  <strong>Walkthrough</strong>
+  <h2>Overview</h2>
+  <a href="#goal">The goal</a>
+  <a href="#status">Where we stand</a>
+  <a href="#problem">The problem &amp; the degeneracy</a>
+  <h2>How it works</h2>
+  <a href="#method">Method: amortized NPE</a>
+  <a href="#arch">The MDN architecture</a>
+  <a href="#data">Data &amp; train/holdout</a>
+  <a href="#validation">Validation toolkit</a>
+  <h2>Phases (done)</h2>
+  <a href="#p0">0 · Proof of concept</a>
+  <a href="#p1">1 · Full 6-parameter</a>
+  <a href="#p2">2 · Resonance diagnosis</a>
+  <a href="#p3">3 · Observables program</a>
+  <h2>Synthesis</h2>
+  <a href="#thesis">Refined thesis</a>
+  <a href="#roadmap">Roadmap &amp; remaining</a>
+  <a href="#caveats">Honest caveats</a>
+  <a href="#repro">Reproduce it</a>
+</nav>
+<main>
+
+<span class="anchor" id="goal"></span>
+<h1>Learning fast, calibrated exoplanet masses from transit-timing variations</h1>
+<p class="lead">Can a neural network instantly return a <em>trustworthy posterior</em> over the masses
+and orbits of interacting planets, from the tiny wobbles in when they transit, and survive the
+near-resonant regime where standard fast methods give up? This page walks through what we built,
+how we tested it, and what we found.</p>
+
+<div class="callout">
+<b>One-line answer.</b> Yes. The method is calibration-robust out of the box; near resonance its
+posteriors widen <em>honestly</em> because the information is genuinely missing from transit timing
+(a physical, data-limited effect, not a model defect). Adding the <b>right</b> observables,
+transit durations and radial velocity, breaks that degeneracy: near-resonance mass tightening jumps
+from <b>16% to 83%</b>.
+</div>
+
+<span class="anchor" id="status"></span>
+<h2>Where we stand</h2>
+<p>Built and validated in simulation through the observables program (phases 0&ndash;3). The flow head,
+baseline parity against <code>jaxttv</code>, and real-data validation remain.</p>
+<figure>
+  <img src="status_figure.png" alt="Project status roadmap">
+  <figcaption>Project status. Green = built and validated in simulation; grey = remaining. The inset shows
+  the headline result: near-resonance mass tightening 16% (timing+durations) &rarr; 83% (adding RV).
+  Generated by <code>status_figure.py</code>.</figcaption>
+</figure>
+
+<span class="anchor" id="problem"></span>
+<h2>The problem, and the degeneracy at its heart</h2>
+<p>When two planets orbit one star they gravitationally tug on each other, so each transits slightly
+early or late on a repeating cycle. These <b>transit-timing variations (TTVs)</b> encode the planets'
+masses and orbits. The standard extraction is a per-system MCMC over an N-body simulator: hours to days
+per system, and usually restricted to non-resonant systems. We replace that with <b>amortized inference</b>:
+train one network once, then infer any new system in milliseconds.</p>
+
+<p>The hard part is a <b>degeneracy</b>. The dominant TTV signal has an amplitude set by a
+<em>combination</em> of the perturbing planet's mass and its eccentricity, so a heavier planet on a
+rounder orbit and a lighter planet on a more eccentric orbit produce almost the same wobble. The set of
+equally-good answers traces a <b>ridge</b> in mass&ndash;eccentricity space. Near the 2:1 mean-motion
+resonance the signal collapses onto essentially one informative combination, so the ridge gets longer and
+flatter, and mass and eccentricity become nearly impossible to separate from timing alone.</p>
+
+<p>We parametrize each planet's eccentricity as a smooth 2-vector
+<code>h = e&middot;cos&varpi</code>, <code>k = e&middot;sin&varpi</code> (no singularity at
+<code>e=0</code>, no angle wraparound). The full inference target is
+<code>&theta; = (m&#8321;, m&#8322;, h&#8321;, k&#8321;, h&#8322;, k&#8322;)</code>. This coordinate choice
+turns out to be exactly the one in which the physics separates: <b>durations constrain h, radial velocity
+constrains k</b>.</p>
+
+<span class="anchor" id="method"></span>
+<h2>Method: amortized Neural Posterior Estimation (NPE)</h2>
+<p>We train a conditional density estimator <code>q(&theta;&nbsp;|&nbsp;x)</code> on pairs of
+(true parameters, simulated data). The estimator is a <b>Mixture Density Network (MDN)</b>: a neural
+network whose output is not a single point but the parameters of a 24-component Gaussian mixture over the
+6-D parameter space. Training maximizes the probability the mixture assigns to the true parameters; because
+many degenerate systems share nearly identical data, the network is forced to widen its blob to cover all
+consistent answers, and that width <em>is</em> the posterior.</p>
+
+<span class="anchor" id="arch"></span>
+<h2>The MDN architecture in detail</h2>
+<p>A shared MLP trunk (<code>model.py</code>) feeds three output heads that together parametrize the mixture.
+The example uses the full timing+durations+RV input (<code>in_dim = 151</code>); <code>in_dim</code> is 61
+(timing-only), 121 (+durations), or 151 (+durations+RV), always with the period ratio appended.</p>
+
+<div class="card">
+<div class="mermaid">
+flowchart TD
+    X["INPUT X  (B, 151)<br/>60 timing (O-C, min) | 60 durations (TDV, min) | 30 RV (m/s) | 1 period ratio<br/>in_dim = 61 timing-only / 121 +durations / 151 +durations+RV"]
+    subgraph BODY["BODY — MLP shared trunk"]
+        L1["Linear(151 to 256)"] --> R1["ReLU"]
+        R1 --> L2["Linear(256 to 256)"] --> R2["ReLU"]
+        R2 --> L3["Linear(256 to 256)"] --> R3["ReLU"]
+        R3 --> L4["Linear(256 to 256)"] --> R4["ReLU"]
+    end
+    X --> L1
+    R4 --> H["h  (B, 256)<br/>shared representation"]
+    H --> W["HEAD 1: logits<br/>Linear(256 to 24)<br/>log_softmax → log_w (B, 24)<br/>24 mixture weights, sum = 1"]
+    H --> M["HEAD 2: means<br/>Linear(256 to 144)<br/>reshape → mu (B, 24, 6)<br/>blob centers, raw (any value)"]
+    H --> S["HEAD 3: logstd<br/>Linear(256 to 144)<br/>reshape, clamp(-7, 3), exp → sigma (B, 24, 6)<br/>blob widths, positive"]
+    W --> MIX["OUTPUT: 24-component Gaussian mixture over theta in R^6<br/>p(theta | X) = sum_k w_k · N(theta; mu_k, diag(sigma_k^2))<br/>theta = (m1, m2, h1, k1, h2, k2)"]
+    M --> MIX
+    S --> MIX
+    MIX --> TRAIN["TRAINING: loss (nll)<br/>label = theta_true (B, 6), one point<br/>logsumexp(log_w + log N(theta; mu_k, sigma_k))<br/>LOSS = − mean log p(theta | X)"]
+    MIX --> SAMPLE["SAMPLING: inference<br/>pick blob k ~ Categorical(w)<br/>theta = mu_k + sigma_k · epsilon, epsilon ~ N(0, I)<br/>→ posterior samples (B, n, 6)"]
+</div>
+</div>
+
+<details>
+<summary class="muted">Text (ASCII) version of the same diagram</summary>
+<pre><code>INPUT  X                      the observed data vector, one per system
++------------------------------------------------------------------+
+|  60 timing (O-C, min) | 60 durations (TDV, min) | 30 RV (m/s) | 1 |   shape (B, 151)
++------------------------------------------------------------------+
+        the trailing "1" is the appended period ratio (conditioning input)
+                              |
+                              v
++----------------------- BODY  (MLP, shared trunk) -----------------------+
+|   Linear(151 -> 256)  -->  ReLU                          (B, 256)       |
+|   Linear(256 -> 256)  -->  ReLU                          (B, 256)       |
+|   Linear(256 -> 256)  -->  ReLU                          (B, 256)       |
+|   Linear(256 -> 256)  -->  ReLU                          (B, 256)       |
++------------------------------------------------------------------------+
+                        h  (B, 256)   shared representation
+          +-------------------+-------------------+
+          v                   v                   v
+   HEAD 1: logits      HEAD 2: means       HEAD 3: logstd
+   Linear(256->24)     Linear(256->144)    Linear(256->144)
+   log_softmax         reshape ->(B,24,6)  reshape, clamp(-7,3)
+   -> log_w (B,24)     -> mu (B,24,6)      -> sigma=exp(.) (B,24,6)
+   (weights, sum=1)    (centers, raw)      (widths, positive)
+          \                   |                   /
+           +------------------+------------------+
+                              v
+   OUTPUT: 24-component Gaussian mixture over theta in R^6
+   p(theta|X) = sum_k  w_k * N(theta; mu_k, diag(sigma_k^2))
+   theta = (m1, m2, h1, k1, h2, k2)
+                              |
+        +---------------------+---------------------+
+        v                                           v
+  TRAINING (nll)                            SAMPLING (inference)
+  label = theta_true (B,6), one point       pick blob k ~ Categorical(w)
+  LOSS = - mean log p(theta|X)              theta = mu_k + sigma_k * eps</code></pre>
+</details>
+
+<p><b>Three heads, three jobs.</b> Weights use <code>softmax</code> (must sum to 1); means are raw (a center
+can be anywhere); widths use <code>exp</code> of a clamped log (must be positive). <code>ReLU</code> is the
+body nonlinearity. The proposed next step (<a href="#roadmap">roadmap</a>) swaps this MDN head for a
+normalizing flow to fix training instability, not to sharpen marginals.</p>
+
+<span class="anchor" id="data"></span>
+<h2>Data, and the train / holdout sets</h2>
+<p>All data is <b>simulated</b> with a REBOUND (WHFast) N-body forward model (<code>simulator.py</code>),
+so ground-truth parameters are known exactly. Each system: a star plus two transiting planets, integrated
+over a ~500-day baseline. Geometry is idealized as edge-on and coplanar (see <a href="#caveats">caveats</a>).</p>
+
+<h4>Priors (what each parameter is drawn from)</h4>
+<table>
+<tr><th>Parameter</th><th>Prior</th><th>Meaning</th></tr>
+<tr><td><code>m&#8321;</code></td><td>Uniform [3, 15] M&#8853;</td><td>inner planet mass</td></tr>
+<tr><td><code>m&#8322;</code></td><td>Uniform [8, 45] M&#8853;</td><td>outer planet mass</td></tr>
+<tr><td><code>(h&#8321;,k&#8321;), (h&#8322;,k&#8322;)</code></td><td>uniform-in-disk, e&#8804;0.12 (baseline) / 0.15 (near-resonance)</td><td>eccentricity vectors</td></tr>
+<tr><td>period ratio</td><td>fixed 2:1, or Uniform [1.90, 2.20] (cross-resonance)</td><td>outer/inner period; fed as a conditioning input</td></tr>
+</table>
+
+<h4>Observables (the input vector, stackable)</h4>
+<table>
+<tr><th>Layer</th><th>Dim</th><th>What it is</th><th>Constrains</th></tr>
+<tr><td>Transit timing (O-C)</td><td>60</td><td>40 inner + 20 outer transit-time residuals (minutes)</td><td>the degenerate mass&ndash;ecc ridge</td></tr>
+<tr><td>+ Transit durations (TDV)</td><td>+60</td><td>one duration residual per transit</td><td><b>h</b> (e&middot;cos&varpi)</td></tr>
+<tr><td>+ Radial velocity</td><td>+30</td><td>star's reflex velocity, 30 epochs, m/s</td><td><b>k</b> (e&middot;sin&varpi) &amp; mass</td></tr>
+</table>
+
+<h4>Train / holdout per experiment</h4>
+<p>Every experiment trains on simulated pairs and evaluates on a <b>disjoint held-out set</b> generated with a
+different random seed (no system appears in both). Calibration is measured on the holdout; near-resonance
+results are reported at the separatrix (period ratio within 0.025 of 2.0).</p>
+<table>
+<tr><th>Experiment</th><th>Train</th><th>Val</th><th>Holdout test</th><th>Regime / noise</th><th>Seeds</th></tr>
+<tr><td>PoC / 6-param (<code>train.py</code>)</td><td>16000</td><td>1500</td><td>800 (SBC, <code>evaluate.py</code>)</td><td>fixed 2:1, timing 0.5 min</td><td>1</td></tr>
+<tr><td>Cross-resonance (<code>cross_resonance.py</code>)</td><td>16000</td><td>1500</td><td>3000</td><td>ratio 1.9&ndash;2.2, e&#8804;0.15</td><td>1</td></tr>
+<tr><td>Disambiguation (<code>disambiguation.py</code>)</td><td>12000</td><td>1200</td><td>ABC pool 25000/ratio, 150 accepted</td><td>fixed ratio</td><td>1</td></tr>
+<tr><td>Durations A/B (<code>observables_experiment.py</code>)</td><td>9000</td><td>1500</td><td>600</td><td>fixed 2:1, e&#8804;0.12, 0.5 min</td><td>1</td></tr>
+<tr><td>3-arm +RV (<code>observables_rv.py</code>)</td><td>13000</td><td>1500</td><td>3000</td><td>ratio 1.9&ndash;2.2, e&#8804;0.15, RV 1 m/s</td><td>3</td></tr>
+<tr><td>RV robustness (<code>robustness_rv.py</code>)</td><td>9000</td><td>1200</td><td>2000</td><td>RV noise 0.3&ndash;10 m/s</td><td>3</td></tr>
+<tr><td>RV cadence (<code>cadence_rv.py</code>)</td><td>9000</td><td>1200</td><td>2000</td><td>RV epochs 3&ndash;30</td><td>3</td></tr>
+</table>
+
+<figure>
+  <img src="ttv_system0.png" alt="TTV signal for one system">
+  <figcaption>An example transit-timing signal (O-C residuals) for one simulated system, the raw data the
+  network learns from.</figcaption>
+</figure>
+
+<span class="anchor" id="validation"></span>
+<h2>Validation toolkit</h2>
+<p>Different phases used different tools, matched to the claim being made.</p>
+<table>
+<tr><th>Tool</th><th>What it measures</th><th>Pass criterion</th></tr>
+<tr><td><b>Coverage / SBC</b></td><td>calibration: does the X% credible interval contain truth X% of the time, per parameter</td><td>coverage &asymp; nominal; flat SBC rank histogram</td></tr>
+<tr><td><b>Recovery / <code>|z|</code></b></td><td>accuracy: posterior-sigmas between truth and posterior mean</td><td><code>|z|</code> &#8818; 2</td></tr>
+<tr><td><b>Posterior-predictive</b></td><td>do re-simulated posterior samples bracket the observed data</td><td>observed transits inside the sample envelope</td></tr>
+<tr><td><b>Validation NLL</b></td><td>informativeness / sharpness of the posterior</td><td>more negative = sharper</td></tr>
+<tr><td><b>Width tightening</b></td><td>% shrinkage of a parameter's posterior width when adding an observable</td><td>higher = more informative observable</td></tr>
+<tr><td><b>ABC reference</b></td><td>independent likelihood-based posterior width, to test physical vs model limit</td><td>MDN width &#8804; ABC width &rarr; faithful</td></tr>
+<tr><td><b>Linear probe R&sup2;</b></td><td>is a parameter even present in an observable</td><td>higher = information is there</td></tr>
+</table>
+
+<span class="anchor" id="p0"></span>
+<h2>Phase 0 &mdash; Proof of concept <span class="pill done">done</span></h2>
+<h4>What we did</h4>
+<p>The smallest end-to-end version: two planets, infer just 2 parameters (<code>m&#8322;, e&#8322;</code>) with
+an MDN, on real REBOUND N-body data. Chosen because the 2-D posterior can be plotted and eyeballed, and because
+<code>(m&#8322;, e&#8322;)</code> is the textbook degeneracy.</p>
+<h4>Results</h4>
+<ul>
+<li>Calibrated posterior that reproduces the curved mass&ndash;eccentricity valley.</li>
+<li><b>~10&#8308;&times; faster</b> than a brute-force grid.</li>
+<li><b>REBOUND match:</b> real N-body agreed with the toy integrator on TTV super-period, amplitude, and mass-scaling.</li>
+</ul>
+<div class="callout win"><b>Verdict.</b> The core bet works: a network can produce a fast, calibrated TTV posterior.</div>
+
+<span class="anchor" id="p1"></span>
+<h2>Phase 1 &mdash; Full 6-parameter element vector <span class="pill done">done</span></h2>
+<h4>What we did</h4>
+<p>Scaled to the full <code>&theta; = (m&#8321;, m&#8322;, h&#8321;, k&#8321;, h&#8322;, k&#8322;)</code>, both
+planets transiting, and verified calibration across all six. Trained on 16000 systems, held out 800 for SBC.</p>
+<h4>Results</h4>
+<ul>
+<li>Coverage near nominal at 50/68/90/95% for every parameter; flat SBC rank histograms.</li>
+<li><code>|z|</code> recovery near or under 2; posterior-predictive envelope brackets the data.</li>
+</ul>
+<div class="callout win"><b>Verdict.</b> Calibration holds in the realistic 6-D parameter space, not just the 2-D toy.</div>
+
+<span class="anchor" id="p2"></span>
+<h2>Phase 2 &mdash; Resonance diagnosis <span class="pill done">done</span></h2>
+<p>This is where the project's thinking changed. The original fear was that calibration would <em>break</em> at
+the resonance separatrix. We stress-tested in stages.</p>
+
+<h3>2a &middot; Resonance sweeps (fixed ratio)</h3>
+<p>Drove systems toward 2:1 at e&#8804;0.12 then e&#8804;0.30. <b>Found:</b> no calibration break; posteriors
+widen honestly; instability stayed ~0% and was <em>lower</em> near resonance. The 2:1 resonance is
+<b>dynamically protective</b>. The "calibration breaks at the separatrix" hypothesis was <b>falsified</b>.</p>
+
+<h3>2b &middot; Cross-resonance (one model spanning 1.9&ndash;2.2)</h3>
+<p>Harder: a single model handling the whole ratio range, ratio fed as input. <b>Found</b> two failures, but not
+overconfidence: <b>unstable training</b> (validation NLL diverges; only early-stopping saves it) and
+<b>informativeness collapse</b> (best val NLL <b>&minus;5.9 &rarr; +3.0 &rarr; +5.7</b> from fixed-ratio to
+spanning-resonance to giant-eccentric). Calibration drift stayed modest (~6%).</p>
+
+<h3>2c &middot; Disambiguation (the pivot)</h3>
+<p>Is the widening the model's fault or the data's? We built an independent ABC (likelihood-based) reference and
+compared widths. <b>Found:</b> the MDN's widths <b>track the ABC reference and are never wider</b>. Since a weak
+model would be <em>wider</em> than the true limit, the width is the real information limit: the collapse is
+<b>physical (data-limited)</b>. <span class="muted">(Caveat: ABC was sparsity-limited, so this leans partly on
+the calibration evidence.)</span></p>
+
+<h3>2d &middot; Sim-to-real pretraining</h3>
+<p>Masked pretraining on a controlled clean-vs-messy-noise gap. <b>Found:</b> calibration error improved
+<b>5.4% &rarr; 2.4%</b> (frozen encoder) but point accuracy (RMSE) got slightly worse. So pretraining buys
+<b>robustness, not information</b>. Single seed, suggestive.</p>
+
+<div class="callout"><b>The pivot.</b> The model is faithful. Near resonance the posterior is wide because the
+information is not in the timing data, not because the algorithm is weak. <b>The bottleneck is observational, not
+algorithmic.</b> This launched Phase 3. It also isolated the one purely algorithmic leftover, the training
+instability, which no amount of data will fix (that is what the future flow head targets).</p></div>
+
+<span class="anchor" id="p3"></span>
+<h2>Phase 3 &mdash; Observables program <span class="pill done">done</span></h2>
+<p>Acting on the diagnosis: add observables that carry the missing information. The strategy is to add observables
+that constrain <em>different</em> combinations, so their constraints intersect instead of overlapping.</p>
+
+<h3>3a &middot; Transit durations (pin h)</h3>
+<p>Duration &asymp; 2R&#9733;/|v_y| at mid-transit depends on <code>h</code> nearly independently of mass
+(corr(h, duration) &asymp; &minus;1). A/B test: timing vs timing+durations, same systems and noise.</p>
+<div class="grid2">
+  <div class="card kpi"><h4>Fixed ratio (e&#8804;0.12)</h4>
+    mass tightening <b>76&ndash;81%</b><br>h-components <b>94&ndash;95%</b><br>
+    val NLL <b>&minus;4.3 &rarr; &minus;10.2</b><br>coverage ~ nominal</div>
+  <div class="card kpi"><h4>Across resonance (e&#8804;0.15)</h4>
+    val NLL <b>+3.6 &rarr; &minus;1.4</b><br>h pinned <b>93&ndash;96%</b><br>
+    mass only <b>~22%</b> (weakest at separatrix)<br><span class="muted">durations pin h, not k</span></div>
+</div>
+<p><b>Robustness (0.5&ndash;10 min duration noise, 3 seeds):</b> survives; at 10-min precision mass width is still
+about half timing-only (the signal is in the mean, averages down over transits).</p>
+<div class="callout"><b>Diagnosis handed forward.</b> Durations broke the degeneracy at fixed ratio but only
+partially near resonance, and told us exactly what was missing: <b>k</b>.</div>
+
+<h3>3b &middot; Radial velocity (pin k and mass) &mdash; the headline</h3>
+<p>The star's Doppler wobble: its <em>amplitude</em> &prop; mass (a near-direct mass measurement independent of the
+TTV degeneracy), and its <em>eccentric harmonic shape</em> encodes the full e-vector including <code>k</code>.
+Linear probe confirms: k&#8322; predictability <b>0.16 (durations) &rarr; 0.63 (RV)</b>; m&#8322; from RV alone
+<b>R&sup2; = 0.99</b>. 3-arm A/B/C across the resonance, 3 seeds.</p>
+<table>
+<tr><th>Metric (near resonance)</th><th>A: timing</th><th>B: +durations</th><th>C: +durations+RV</th></tr>
+<tr><td>best validation NLL</td><td>+3.6</td><td>&minus;1.4</td><td><b>&minus;5.8</b></td></tr>
+<tr><td>m&#8322; mass tightening</td><td>&mdash;</td><td>16%</td><td><b>83%</b></td></tr>
+<tr><td>k&#8321; / k&#8322; tightening</td><td>&mdash;</td><td>+5% / &minus;16%</td><td><b>57% / 51%</b></td></tr>
+<tr><td>h-components</td><td>&mdash;</td><td>pinned</td><td>96&ndash;97%</td></tr>
+<tr><td>90% coverage</td><td>0.88</td><td>&mdash;</td><td>0.83</td></tr>
+</table>
+<figure>
+  <img src="posterior_overlay_rv.png" alt="m2-k2 posterior: durations ridge to RV blob">
+  <figcaption>The degeneracy, made visual, for one separatrix system with eccentricity placed purely in
+  <code>k&#8322;</code>. <b>Red</b> (timing+durations, k free) is a wide ridge; <b>blue</b> (+RV, k pinned)
+  collapses to a tight blob on the truth (gold star). m&#8322; std 8.5&rarr;1.2 M&#8853;, k&#8322; std
+  0.055&rarr;0.026. Generated by <code>posterior_overlay_rv.py</code>.</figcaption>
+</figure>
+<div class="callout win"><b>Verdict.</b> Durations constrain h, RV constrains k and mass, and only with <em>both</em>
+does the near-resonant mass degeneracy break (16% &rarr; 83%). The Phase 2 diagnosis is confirmed end to end:
+not "more data" but <b>the right data</b>.</div>
+
+<h3>3c &middot; RV robustness (how precise must the spectrograph be?)</h3>
+<p>Swept RV noise 0.3&ndash;10 m/s (3 seeds), against the timing+durations reference.</p>
+<figure>
+  <img src="robustness_rv.png" alt="RV robustness curves">
+  <figcaption>Near-resonance mass tightening degrades gracefully and monotonically with RV noise
+  (~91/81/56/8% at 0.3/1/3/10 m/s); k&#8322; width widens back toward the timing+durations reference as precision
+  coarsens; coverage stays flat. It holds at realistic ESPRESSO/HARPS precision (&#8818;1&ndash;3 m/s). Generated
+  by <code>robustness_rv.py</code>.</figcaption>
+</figure>
+
+<h3>3d &middot; RV cadence (how many visits?)</h3>
+<p>Subsampled the RV curve to 3&ndash;30 epochs (3 seeds). A clean mass-vs-k split.</p>
+<figure>
+  <img src="cadence_rv.png" alt="RV cadence curves">
+  <figcaption>Mass lives in the RV amplitude, so <b>just 3 epochs already buy ~50%</b> of the near-resonance mass
+  tightening (rising to ~64/74/81% at 8/15/30); k lives in the eccentric harmonic shape, so k&#8322; lags
+  (~23% at 3 &rarr; ~55% at 30 epochs) and needs the dense campaign. Coverage flat at every cadence. Generated by
+  <code>cadence_rv.py</code>.</figcaption>
+</figure>
+<div class="callout win"><b>Verdict.</b> A handful of RV visits cheaply recovers most of the near-resonant mass;
+fully pinning the eccentricity orientation (k) is what costs telescope time.</div>
+
+<span class="anchor" id="thesis"></span>
+<h2>Refined thesis</h2>
+<ul>
+<li>Amortized SBI for TTV is <b>calibration-robust out of the box</b>, even at large TTVs, giant eccentric
+planets, and across the resonance. It does <b>not</b> fail by overconfidence.</li>
+<li>It fails by <b>unstable training</b> and <b>informativeness collapse</b> spanning the resonance, and that
+collapse is <b>largely physical (data-limited)</b>, not a model defect.</li>
+<li>So the bottleneck for posterior <em>sharpness</em> is <b>observational, not algorithmic</b>. Demonstrated
+end to end: durations pin <b>h</b>, radial velocity pins <b>k</b> and mass, and near-resonance mass tightening
+snaps from 16% to 83%.</li>
+<li>The genuine ML contributions: amortization at survey scale; a flow for faithful multimodal posteriors and
+stable training (not for tighter marginals); ingesting more observables (the real information lever); and
+sim-to-real robustness via pretraining.</li>
+</ul>
+
+<span class="anchor" id="roadmap"></span>
+<h2>Roadmap and what remains</h2>
+<table>
+<tr><th>Phase</th><th>Status</th></tr>
+<tr><td>0 &middot; PoC (2-param MDN, calibrated, fast)</td><td><span class="pill done">done</span></td></tr>
+<tr><td>1 &middot; Full 6-param element vector</td><td><span class="pill done">done</span></td></tr>
+<tr><td>2 &middot; Resonance diagnosis (collapse is physical, not overconfidence)</td><td><span class="pill done">done</span></td></tr>
+<tr><td>3 &middot; Observables program (durations pin h, RV pins k + mass; 16%&rarr;83%)</td><td><span class="pill done">done</span></td></tr>
+<tr><td>4 &middot; Flow head (MDN &rarr; normalizing flow; fix training instability)</td><td><span class="pill todo">next</span></td></tr>
+<tr><td>5 &middot; Baseline parity vs <code>jaxttv</code> HMC</td><td><span class="pill todo">pending</span></td></tr>
+<tr><td>6 &middot; Encoder + real data (Kepler-9, TRAPPIST-1; match published MCMC; SBC at scale)</td><td><span class="pill todo">pending</span></td></tr>
+<tr><td>7 &middot; Survey scale (TESS / PLATO; tool + paper)</td><td><span class="pill todo">pending</span></td></tr>
+</table>
+<p class="muted">A "stochastic-simulator" treatment of strong chaos was in the original plan but proved
+unnecessary: instability stayed ~0% and the 2:1 resonance was dynamically protective.</p>
+
+<span class="anchor" id="caveats"></span>
+<h2>Honest caveats</h2>
+<ul>
+<li><b>Incumbent.</b> Differentiable N-body + HMC (<code>jaxttv</code>) is mature and exact per-system; our edge
+must be amortization at scale + multimodal/calibrated posteriors, not raw per-system accuracy. Benchmark early.</li>
+<li><b>Information limit.</b> Sharpness is data-limited near resonance (strongly supported, not proven; ABC was
+sparsity-limited).</li>
+<li><b>Geometry idealization.</b> The simulator fixes edge-on (i = 90&deg;) and coplanar, so RV maps to the true
+mass not m&middot;sin i, making the RV mass constraint modestly optimistic. Minor for transiting systems
+(sin i &asymp; 1 by selection); the real simplification is coplanarity, which omits nodal precession and the
+out-of-plane duration/depth variations it drives. The relative thesis is unaffected.</li>
+<li><b>Reproducibility.</b> Some results are single-seed (PoC, cross-resonance, disambiguation, pretraining);
+the RV program is 3-seed. Multi-seed everything before any formal write-up.</li>
+<li><b>Sim-to-real gap</b> was small in our synthetic test; validate on real Kepler systematics before
+over-investing.</li>
+</ul>
+
+<span class="anchor" id="repro"></span>
+<h2>Reproduce it</h2>
+<pre><code>pip install -r requirements.txt
+
+# Phase 0/1: train the 6-param posterior, then validate (coverage, SBC, speed)
+python train.py
+python evaluate.py
+
+# Phase 2: resonance diagnosis
+python resonance_sweep.py
+python cross_resonance.py
+python disambiguation.py
+python tf_pretrain.py
+
+# Phase 3: observables program
+python observables_experiment.py      # durations A/B (fixed ratio)
+python observables_rv.py              # 3-arm timing / +durations / +durations+RV
+python robustness_rv.py               # -> robustness_rv.png
+python cadence_rv.py                  # -> cadence_rv.png
+python posterior_overlay_rv.py        # -> posterior_overlay_rv.png
+python status_figure.py               # -> status_figure.png</code></pre>
+<p class="muted">Full narrative and the resume point live in <code>HANDOFF.md</code>; detailed results in
+<code>README.md</code>.</p>
+
+<hr>
+<p class="muted" style="font-size:13px">Single-file walkthrough generated for the TTV-experiment repository.
+Figures are the committed PNGs alongside this file; the architecture diagram renders via Mermaid (CDN) with an
+ASCII fallback above.</p>
+
+</main>
+</div>
+</body>
+</html>

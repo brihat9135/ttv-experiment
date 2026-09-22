@@ -117,6 +117,56 @@ def train_eval(n_rv, data, seed):
     return ratio_all, cov90, ratio_sep
 
 
+def make_figure(ref, cad):
+    """The mass-vs-k split: m2 and k2 near-resonance tightening vs number of RV epochs."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    def mean(d, key, idx): return np.array(d[key])[:, idx].mean()
+
+    cads = CADENCES
+    ref_sep = mean(ref, "sep", 1)
+    ref_k2  = mean(ref, "all", 5)
+    m2_tight = [(1 - mean(cad[c], "sep", 1) / ref_sep) * 100 for c in cads]
+    k2_tight = [(1 - mean(cad[c], "all", 5) / ref_k2) * 100 for c in cads]
+    cov_m2   = [mean(cad[c], "cov", 1) for c in cads]
+
+    fig, ax = plt.subplots(figsize=(8.2, 5.2))
+    ax.plot(cads, m2_tight, "o-", color="#1f6fb2", lw=2.4, ms=9, label="m2 (mass) — lives in RV amplitude")
+    ax.plot(cads, k2_tight, "s-", color="#4c8c4a", lw=2.4, ms=8, label="k2 (ecc. orientation) — lives in RV shape")
+    for x, y in zip(cads, m2_tight):
+        ax.annotate(f"{y:.0f}%", (x, y), textcoords="offset points", xytext=(0, 10),
+                    ha="center", fontsize=9, fontweight="bold", color="#1f6fb2")
+    for x, y in zip(cads, k2_tight):
+        ax.annotate(f"{y:.0f}%", (x, y), textcoords="offset points", xytext=(0, -16),
+                    ha="center", fontsize=9, fontweight="bold", color="#4c8c4a")
+    ax.axhline(0, color="#c44e52", ls="--", lw=1.2, label="timing+durations (ref)")
+    ax.set_xticks(cads); ax.set_xticklabels([str(c) for c in cads])
+    ax.set_xlabel("number of RV epochs")
+    ax.set_ylabel("near-resonance tightening vs timing+durations (%)")
+    ax.set_title("A handful of RV epochs buys the mass; k needs the dense campaign\n"
+                 f"(cov(m2) flat {min(cov_m2):.2f}–{max(cov_m2):.2f} across cadence; 3 seeds)",
+                 fontsize=11)
+    ax.set_ylim(-8, 100); ax.grid(alpha=0.25); ax.legend(fontsize=9, loc="center right")
+    fig.tight_layout()
+    fig.savefig("cadence_rv.png", dpi=145)
+    print("  wrote cadence_rv.png")
+
+
+def dump_json(ref, cad):
+    import json
+    def mean(d, key, idx): return round(float(np.array(d[key])[:, idx].mean()), 4)
+    ref_sep = mean(ref, "sep", 1); ref_k2 = mean(ref, "all", 5)
+    out = {"cadences": CADENCES, "ref_m2_sep": ref_sep, "ref_k2_all": ref_k2,
+           "per_cadence": {str(c): {
+               "m2_tighten_pct": round((1 - mean(cad[c], "sep", 1) / ref_sep) * 100, 1),
+               "k2_tighten_pct": round((1 - mean(cad[c], "all", 5) / ref_k2) * 100, 1),
+               "cov_m2": mean(cad[c], "cov", 1)} for c in CADENCES}}
+    json.dump(out, open("_cadence_rv.json", "w"), indent=2)
+    print("  wrote _cadence_rv.json")
+
+
 def main():
     print(f"Device: {DEVICE}. RV-cadence sweep across the resonance (3 seeds).")
     print(f"  timing/dur {TIME_NOISE} min, RV {RV_NOISE} m/s; epochs kept {CADENCES} of {S.N_RV}.")
@@ -157,6 +207,8 @@ def main():
               f"k2 {(1 - m(cad[c],'all',5)/rk2)*100:3.0f}%")
     print("\n  (mass sits in the RV amplitude -> survives few epochs; k sits in the harmonic"
           " shape -> needs more)")
+    dump_json(ref, cad)
+    make_figure(ref, cad)
 
 
 if __name__ == "__main__":

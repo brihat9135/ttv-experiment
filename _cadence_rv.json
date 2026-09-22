@@ -1,0 +1,38 @@
+{
+  "cadences": [
+    3,
+    5,
+    8,
+    15,
+    30
+  ],
+  "ref_m2_sep": 0.526,
+  "ref_k2_all": 0.9412,
+  "per_cadence": {
+    "3": {
+      "m2_tighten_pct": 50.4,
+      "k2_tighten_pct": 22.6,
+      "cov_m2": 0.8598
+    },
+    "5": {
+      "m2_tighten_pct": 57.3,
+      "k2_tighten_pct": 27.7,
+      "cov_m2": 0.8633
+    },
+    "8": {
+      "m2_tighten_pct": 63.8,
+      "k2_tighten_pct": 38.2,
+      "cov_m2": 0.8597
+    },
+    "15": {
+      "m2_tighten_pct": 73.7,
+      "k2_tighten_pct": 35.3,
+      "cov_m2": 0.874
+    },
+    "30": {
+      "m2_tighten_pct": 80.5,
+      "k2_tighten_pct": 54.9,
+      "cov_m2": 0.875
+    }
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "rv_noises": [
+    0.3,
+    1.0,
+    3.0,
+    10.0
+  ],
+  "ref_m2_sep": 0.526,
+  "ref_k2_all": 0.9412,
+  "ref_cov_m2": 0.8505,
+  "per_noise": {
+    "0.3": {
+      "m2_tighten_pct": 90.9,
+      "m2_sep_width": 0.0479,
+      "k2_all_width": 0.2639,
+      "cov_m2": 0.8573
+    },
+    "1.0": {
+      "m2_tighten_pct": 80.5,
+      "m2_sep_width": 0.1024,
+      "k2_all_width": 0.4244,
+      "cov_m2": 0.875
+    },
+    "3.0": {
+      "m2_tighten_pct": 55.9,
+      "m2_sep_width": 0.2321,
+      "k2_all_width": 0.6322,
+      "cov_m2": 0.8595
+    },
+    "10.0": {
+      "m2_tighten_pct": 8.4,
+      "m2_sep_width": 0.4818,
+      "k2_all_width": 0.8818,
+      "cov_m2": 0.8523
+    }
+  }
+}
