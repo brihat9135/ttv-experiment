@@ -434,6 +434,18 @@ which is the validation: the network learned the true posterior. Cost: **6.7 ms 
 faithful to the exact Bayesian answer at a tiny fraction of the cost — and that cost is paid
 *once*, then amortized across every future system.
 
+**Cross-code check (`baseline_jaxttv.py`, isolated venv):** the *actual incumbent* —
+`jnkepler.jaxttv`'s differentiable N-body likelihood sampled with NumPyro **NUTS** — runs
+end-to-end on a near-2:1 two-planet system (73 transit times, 1-min precision), inferring the
+same six quantities (two masses + two eccentricity vectors ecosw=h, esinw=k). It recovers them
+with tight, exact per-system posteriors (m2 = 24.8 ± 1.7 M⊕) in **310 s** of HMC. This is a
+demonstration of the incumbent, **not** a head-to-head width comparison (different forward model
+and system than `baseline_parity.py`, so the widths are not directly comparable) — but it
+confirms the positioning cleanly: HMC is exact and tight **per system**, at ~10²–10³ s **every**
+system (310 s here, 1588 s for our emcee run), whereas the amortized MDN pays training once and
+then returns a gold-standard-matched posterior in **~7 ms per system**. The gap is *cost
+structure* (amortization at scale), not correctness.
+
 ## 6. Roadmap
 
 Updated to reflect what actually happened: after the 6-param model the project pivoted
@@ -448,7 +460,7 @@ current frontier; the flow head, baseline parity, and real-data validation remai
 | **2. Resonance diagnosis** | swept toward 2:1; calibration stays robust (fails by *informativeness collapse* + *unstable training*, **not** overconfidence); disambiguation shows the collapse is **physical / data-limited**, not a model defect | ✅ **done** |
 | **3. Observables program** | add transit **durations** (pin *h*) and **radial velocity** (pin *k* + mass) to the forward model; 3-arm A/B/C across the resonance + robustness + cadence studies | ✅ **done — breaks the near-resonance mass degeneracy, 16%→83% tightening** |
 | 4. Flow head | swap MDN → `sbi` normalizing flow; fix the **training instability** durations/RV did *not* | **next (top ML fork)** |
-| 5. Baseline parity | install `jaxttv`; HMC posterior on a near-resonance system; compare width/shape to our amortized posterior (gold-standard check) | pending |
+| 5. Baseline parity | ✅ gold-standard MCMC on our own likelihood (`baseline_parity.py`, MDN matches it, ~2×10⁵× faster) + actual `jaxttv` NUTS cross-code run (`baseline_jaxttv.py`, 310 s/system). Remaining: matched-system head-to-head vs `jaxttv` | **initial pass done** |
 | 6. Encoder + real data | set/transformer encoder (variable-length, variable planet count); run Kepler-9 / TRAPPIST-1; match published MCMC; SBC at scale; TTVFast cross-checks | pending |
 | 7. Survey scale | batch-apply to TESS/PLATO catalogs; release tool + paper | pending |
 
