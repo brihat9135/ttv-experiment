@@ -1,0 +1,65 @@
+{
+  "theta_true": [
+    8.0,
+    28.0,
+    0.05,
+    0.0,
+    0.03,
+    0.04
+  ],
+  "mcmc_seconds": 1587.8,
+  "mdn_ms": 6.7,
+  "accept": 0.372,
+  "n_eff": 620,
+  "per_param": {
+    "m1 [Me]": {
+      "truth": 8.0,
+      "mcmc_mean": 6.3389,
+      "mcmc_std": 1.6798,
+      "mdn_mean": 6.616,
+      "mdn_std": 1.9861,
+      "width_ratio": 1.182
+    },
+    "m2 [Me]": {
+      "truth": 28.0,
+      "mcmc_mean": 23.0936,
+      "mcmc_std": 4.4515,
+      "mdn_mean": 23.6673,
+      "mdn_std": 5.0333,
+      "width_ratio": 1.131
+    },
+    "h1": {
+      "truth": 0.05,
+      "mcmc_mean": 0.0726,
+      "mcmc_std": 0.0208,
+      "mdn_mean": 0.0703,
+      "mdn_std": 0.0221,
+      "width_ratio": 1.064
+    },
+    "k1": {
+      "truth": 0.0,
+      "mcmc_mean": 0.0009,
+      "mcmc_std": 0.006,
+      "mdn_mean": -0.0022,
+      "mdn_std": 0.0086,
+      "width_ratio": 1.432
+    },
+    "h2": {
+      "truth": 0.03,
+      "mcmc_mean": 0.0441,
+      "mcmc_std": 0.0147,
+      "mdn_mean": 0.0448,
+      "mdn_std": 0.0153,
+      "width_ratio": 1.04
+    },
+    "k2": {
+      "truth": 0.04,
+      "mcmc_mean": 0.059,
+      "mcmc_std": 0.0068,
+      "mdn_mean": 0.0568,
+      "mdn_std": 0.0142,
+      "width_ratio": 2.097
+    }
+  },
+  "mean_width_ratio": 1.324
+}

@@ -383,6 +383,57 @@ flowchart TD
 (SBC) + coverage tests on every release, plus head-to-head against N-body MCMC on the
 benchmark systems above.
 
+### Relationship to likelihood-based inference (jaxttv / HMC)
+
+It is worth being precise about how this work relates to the incumbent, because they are
+**two different strategies for the same scientific goal**, not the same thing.
+
+- **Paradigm A — likelihood-based + sampler (the incumbent; Agol / `jnkepler.jaxttv`).**
+  Write an explicit likelihood `p(data | θ)` whose evaluation runs the forward model
+  (parameters → N-body → predicted transit times → compare to data), make it **fast and
+  differentiable**, and draw the posterior with gradient-based MCMC (HMC/NUTS via NumPyro).
+  `jaxttv` (part of `jnkepler`, github.com/kemasuda/jnkepler) is exactly this: a
+  differentiable JAX N-body. It is mature and **exact per system**.
+- **Paradigm B — amortized, likelihood-free (this repo).** Never write a likelihood. Train a
+  network on simulated `(θ, data)` pairs to output `p(θ | data)` directly; inference on a new
+  system is a single forward pass. The expensive training is **amortized** across every system.
+- **Paradigm C — ML emulator of the forward model.** A neural surrogate that predicts transit
+  times faster than N-body, then plugged into a classical sampler. Closest to a literal reading
+  of "speed up the likelihood"; not what we built, but worth noting as an option.
+
+**Honest positioning.** For a *single* system, Paradigm A is a strong, exact baseline and our
+amortized posterior does not beat it on raw accuracy. Our edge must therefore be **(i)
+amortization at survey scale** — train once, then run thousands of Kepler/TESS/PLATO systems
+in the time per-system HMC would spend on a handful — and **(ii) faithful, calibrated,
+multimodal posteriors** in the near-resonant/chaotic regimes where HMC can mix poorly. If we
+ever pitch ourselves as merely "faster per-system inference," we walk into the incumbent's
+strength; the differentiated value is scale + calibration, not speed on one target.
+
+**Why our central finding is paradigm-independent.** The result that the near-resonance mass is
+*information-limited from timing alone* (and needs durations for **h** and RV for **k**) is a
+statement about the data, not the estimator. It constrains what *any* method can do, including
+`jaxttv` HMC, and is therefore a contribution that complements the incumbent rather than
+competing with it.
+
+**Benchmarking.** `baseline_parity.py` runs the honest, apples-to-apples version of the check:
+a gold-standard MCMC (`emcee`) over our **own** REBOUND likelihood on one system, compared to
+the amortized MDN on the same data/priors/noise — same physics, so any difference is the
+inference method, not the N-body engine. (A cross-code check against `jaxttv` itself is a
+separate, useful validation, but it lives in its own environment: `jnkepler`/JAX require
+`numpy>=2` while our Torch stack requires `numpy<2`, so the two cannot share one interpreter and
+`jaxttv` must run in an isolated venv.)
+
+**First result (`baseline_parity.py`, one 2:1 system, timing-only, 6 params):** the amortized
+MDN **reproduces the gold-standard MCMC posterior**. The per-parameter marginals overlap in
+location and shape (see `baseline_parity.png`), and the mean posterior-width ratio MDN/MCMC =
+**1.32** — the MDN is slightly *conservative* (widest on k2 at 2.1×, never dangerously tight),
+which is the safe direction to err. Both posteriors' means are offset from the truth in the
+*same* direction (expected for a single noisy data realization) and **agree with each other**,
+which is the validation: the network learned the true posterior. Cost: **6.7 ms (MDN) vs 1588 s
+(MCMC), a ~2×10⁵× per-system speed-up.** So on a single system the amortized posterior is
+faithful to the exact Bayesian answer at a tiny fraction of the cost — and that cost is paid
+*once*, then amortized across every future system.
+
 ## 6. Roadmap
 
 Updated to reflect what actually happened: after the 6-param model the project pivoted
