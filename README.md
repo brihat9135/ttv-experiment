@@ -446,6 +446,23 @@ system (310 s here, 1588 s for our emcee run), whereas the amortized MDN pays tr
 then returns a gold-standard-matched posterior in **~7 ms per system**. The gap is *cost
 structure* (amortization at scale), not correctness.
 
+**Matched-system head-to-head (`headtohead_*.py`) — and a real lesson.** We fed the *identical*
+noisy transit times (one system, 40+20 transits) to both our MDN and jaxttv NUTS. Result: the
+MDN brackets the truth in every parameter, while jaxttv converges **tightly but biased**
+(m2 = 18.2 ± 1.3 vs truth 28; eccentricity vectors rotated). The cause is decisive and not a bug:
+at the *true* parameters, jaxttv's forward model mispredicts our REBOUND transit times by
+**7.4 min RMS** (14× the 0.5-min noise), *identical* for the fast and newton transit solvers and
+for timesteps P1/20 → P1/120. So the two N-body codes genuinely disagree at the ~7-min level for
+this near-2.1-ratio system, and jaxttv (correctly, given its own physics) shifts mass/eccentricity
+to compensate. **jaxttv is not wrong** — on *its own* data it recovers truth (`baseline_jaxttv.py`);
+the MDN's accuracy here is home-field advantage (it was trained on our REBOUND forward model). The
+honest takeaway: a *meaningful* cross-code head-to-head first requires **reconciling the
+orbital-element / phase conventions** between the two codes (or, better, **generating the SBI
+training data with jaxttv's own differentiable forward model** — a hybrid that would also make the
+comparison exact and is a natural collaboration path). Until then, the rigorous validations are the
+within-physics ones: `baseline_parity.py` (MDN = MCMC on our physics) and `baseline_jaxttv.py`
+(jaxttv exact on its physics). See `headtohead.png`.
+
 ## 6. Roadmap
 
 Updated to reflect what actually happened: after the 6-param model the project pivoted
@@ -460,7 +477,7 @@ current frontier; the flow head, baseline parity, and real-data validation remai
 | **2. Resonance diagnosis** | swept toward 2:1; calibration stays robust (fails by *informativeness collapse* + *unstable training*, **not** overconfidence); disambiguation shows the collapse is **physical / data-limited**, not a model defect | ✅ **done** |
 | **3. Observables program** | add transit **durations** (pin *h*) and **radial velocity** (pin *k* + mass) to the forward model; 3-arm A/B/C across the resonance + robustness + cadence studies | ✅ **done — breaks the near-resonance mass degeneracy, 16%→83% tightening** |
 | 4. Flow head | swap MDN → `sbi` normalizing flow; fix the **training instability** durations/RV did *not* | **next (top ML fork)** |
-| 5. Baseline parity | ✅ gold-standard MCMC on our own likelihood (`baseline_parity.py`, MDN matches it, ~2×10⁵× faster) + actual `jaxttv` NUTS cross-code run (`baseline_jaxttv.py`, 310 s/system). Remaining: matched-system head-to-head vs `jaxttv` | **initial pass done** |
+| 5. Baseline parity | ✅ gold-standard MCMC on our own likelihood (`baseline_parity.py`, MDN matches it, ~2×10⁵× faster); ✅ actual `jaxttv` NUTS (`baseline_jaxttv.py`, 310 s/system, exact on its own physics); ✅ matched-system head-to-head (`headtohead_*.py`) — revealed a **~7-min forward-model mismatch** between our REBOUND sim and jaxttv, so cross-code posteriors diverge. Remaining: **reconcile conventions or retrain SBI on jaxttv's forward model** for an exact cross-code comparison | **done; reconciliation is the next step** |
 | 6. Encoder + real data | set/transformer encoder (variable-length, variable planet count); run Kepler-9 / TRAPPIST-1; match published MCMC; SBC at scale; TTVFast cross-checks | pending |
 | 7. Survey scale | batch-apply to TESS/PLATO catalogs; release tool + paper | pending |
 

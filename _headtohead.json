@@ -1,0 +1,60 @@
+{
+  "jaxttv_seconds": 323.1,
+  "per_param": {
+    "m1 [Me]": {
+      "truth": 8.0,
+      "jaxttv_mean": 3.7948,
+      "jaxttv_std": 0.2937,
+      "mdn_mean": 6.5453,
+      "mdn_std": 2.0233,
+      "std_ratio_mdn_over_jaxttv": 6.889
+    },
+    "m2 [Me]": {
+      "truth": 28.0,
+      "jaxttv_mean": 18.2432,
+      "jaxttv_std": 1.2896,
+      "mdn_mean": 24.0795,
+      "mdn_std": 5.2426,
+      "std_ratio_mdn_over_jaxttv": 4.065
+    },
+    "h1": {
+      "truth": 0.05,
+      "jaxttv_mean": -0.0101,
+      "jaxttv_std": 0.0067,
+      "mdn_mean": 0.0693,
+      "mdn_std": 0.0224,
+      "std_ratio_mdn_over_jaxttv": 3.323
+    },
+    "k1": {
+      "truth": 0.0,
+      "jaxttv_mean": 0.1182,
+      "jaxttv_std": 0.0132,
+      "mdn_mean": -0.0055,
+      "mdn_std": 0.0091,
+      "std_ratio_mdn_over_jaxttv": 0.689
+    },
+    "h2": {
+      "truth": 0.03,
+      "jaxttv_mean": -0.065,
+      "jaxttv_std": 0.0111,
+      "mdn_mean": 0.044,
+      "mdn_std": 0.0152,
+      "std_ratio_mdn_over_jaxttv": 1.374
+    },
+    "k2": {
+      "truth": 0.04,
+      "jaxttv_mean": 0.1037,
+      "jaxttv_std": 0.0135,
+      "mdn_mean": 0.0483,
+      "mdn_std": 0.0148,
+      "std_ratio_mdn_over_jaxttv": 1.095
+    }
+  },
+  "mean_std_ratio_mdn_over_jaxttv": 2.906,
+  "forward_model_mismatch": {
+    "truth_residual_min": 7.39,
+    "postmean_residual_min": 4.2,
+    "noise_min": 0.5,
+    "note": "At the TRUE parameters, jaxttv's forward model mispredicts our REBOUND transit times by 7.39 min RMS (14x the 0.5 min noise), identical for fast/newton solvers and dt=P1/20..P1/120. So the MDN-vs-jaxttv disagreement is a forward-model/orbital-element-convention mismatch, not a solver or sampler issue. jaxttv is accurate on its OWN data (baseline_jaxttv); the MDN's accuracy here is home-field (trained on our REBOUND forward model)."
+  }
+}
