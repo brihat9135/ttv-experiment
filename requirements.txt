@@ -9,3 +9,4 @@ rebound>=5.0        # production symplectic N-body integrator (WHFast) — the f
 # scipy              # MCMC reference posteriors, statistics
 # matplotlib         # plots (PoC renders ASCII because matplotlib/PIL is unavailable here)
 # ttvfast-python     # fast forward model for cheap regions / cross-checks
+zuko  # normalizing-flow head (flow_head.py)

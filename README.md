@@ -528,6 +528,20 @@ and calibration **1.9% (timing) / 4.6% (timing+RV)** — the mild richer-arm ove
 consistent across seeds. So the headline is not a single-seed fluke: **RV breaks the near-resonance
 mass degeneracy at 82 ± 1%** in-hybrid. See `jaxttv_resrv_multiseed.png`.
 
+**Flow head — cures the training instability (`flow_head.py`).** The one defect neither observables
+nor RV fixed is the *training instability* in the cross-resonance regime (the MDN's val NLL diverges;
+only early-stopping saves it). We swapped the MDN head for a **neural spline flow** (zuko) and trained
+both on the same cross-resonance data, same conditioning, same standardization (so val NLL is directly
+comparable). The flow **fixes it cleanly**:
+> MDN val-NLL **swing 83,966 nats** (spikes to +84k and stays diverged) vs flow **swing 7.1 nats**
+> (smooth, monotone; see `flow_head.png`). The flow also reaches **better informativeness** — best val
+> NLL **+0.51 (flow) vs +5.34 (MDN, early-stopped)** — because it actually trains instead of blowing
+> up, and it stays **calibrated (4.2%** coverage error). 
+
+This is exactly the role the thesis assigns the flow: **stable training + faithful posteriors**, not a
+magic sharpener (the near-resonance marginals are still information-limited). The cross-resonance hybrid
+was the ideal test bed, and the flow head passes it.
+
 ## 6. Roadmap
 
 Updated to reflect what actually happened: after the 6-param model the project pivoted
@@ -541,7 +555,7 @@ current frontier; the flow head, baseline parity, and real-data validation remai
 | **1. Full element vector** | REBOUND/WHFast + **6-param θ=(m₁,m₂,h₁,k₁,h₂,k₂)**, both planets transit, calibrated across all 6 | ✅ **done** |
 | **2. Resonance diagnosis** | swept toward 2:1; calibration stays robust (fails by *informativeness collapse* + *unstable training*, **not** overconfidence); disambiguation shows the collapse is **physical / data-limited**, not a model defect | ✅ **done** |
 | **3. Observables program** | add transit **durations** (pin *h*) and **radial velocity** (pin *k* + mass) to the forward model; 3-arm A/B/C across the resonance + robustness + cadence studies | ✅ **done — breaks the near-resonance mass degeneracy, 16%→83% tightening** |
-| 4. Flow head | swap MDN → `sbi` normalizing flow; fix the **training instability** durations/RV did *not* | **next (top ML fork)** |
+| 4. Flow head | ✅ swapped MDN → **neural spline flow** (`zuko`, `flow_head.py`) on the cross-resonance test bed: **cures the training instability** (val-NLL swing 83,966 → 7.1 nats), reaches better informativeness (+0.51 vs +5.34), stays calibrated (4.2%). Remaining: multi-seed + wire the flow into the main pipeline | **done (initial)** |
 | 5. Baseline parity | ✅ gold-standard MCMC on our own likelihood (`baseline_parity.py`, MDN matches it, ~2×10⁵× faster); ✅ actual `jaxttv` NUTS (`baseline_jaxttv.py`, 310 s/system, exact on its own physics); ✅ matched-system head-to-head (`headtohead_*.py`) — revealed a **~7-min forward-model mismatch**; ✅ **resolved by retraining the SBI on jaxttv's own forward model** (`gen_jaxttv_data.py` + `train_jaxttv_mdn.py`) — MDN and jaxttv NUTS now agree (`retrain_compare.png`). The hybrid (differentiable N-body → amortized head) is proven | **done** |
 | 6. Encoder + real data | set/transformer encoder (variable-length, variable planet count); run Kepler-9 / TRAPPIST-1; match published MCMC; SBC at scale; TTVFast cross-checks | pending |
 | 7. Survey scale | batch-apply to TESS/PLATO catalogs; release tool + paper | pending |
