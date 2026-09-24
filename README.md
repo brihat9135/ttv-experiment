@@ -485,6 +485,27 @@ empirical coverage sits on the diagonal at every level and parameter (50→49, 6
 a slight k1 tilt, a small m2 rank-0 spike — expected at single-seed). So the retrained posterior is
 trustworthy across many systems, not just on one. See `calib_jaxttv.png`.
 
+**The hybrid in the near-resonance regime (`gen_jaxttv_resonance.py` + `train_jaxttv_resonance.py`
++ `eval_jaxttv_resonance.py`).** Pushing the hybrid to where the observables story lives: we
+generated cross-resonance jaxttv data spanning period ratio **1.90–2.20** (e≤0.15, ratio as a
+conditioning input) and trained the MDN on it. The result **reproduces all four of our REBOUND
+cross-resonance findings, on an independent forward model** — strong evidence they are *physics,
+not a quirk of our simulator*:
+> (1) **Training instability** — val NLL diverges during training (best +4.57 at ~epoch 40, then
+> blows up); only early-stopping saves it, exactly the REBOUND behavior. (2) **Informativeness
+> collapse** — best val NLL falls from −6.26 (fixed ratio) to +4.57 (spanning the resonance).
+> (3) **Mass degeneracy at the separatrix** — the m2 posterior/prior width **peaks right at ratio
+> 2.00** (0.63 vs ~0.55 off-resonance; see `jaxttv_resonance.png`). (4) **Calibration still holds**
+> — coverage sits on the diagonal across the resonance (mean |coverage − nominal| = **1.4%**), it
+> widens *honestly*, never overconfident.
+
+So the hybrid does not just work at fixed ratio, it faithfully carries the hard-regime physics.
+The remaining increment is to add **radial velocity** to the jaxttv feature (jnkepler exposes RV via
+`get_transit_times_and_rvs_obs`) and show it breaks this near-resonance mass degeneracy in-hybrid, the
+jaxttv analog of §3.9. (Transit durations are not available in jaxttv, so the h-constraint arm would
+still come from our REBOUND simulator.) The training instability is the known defect the **flow head**
+targets, and this cross-resonance hybrid is the natural test bed for it.
+
 ## 6. Roadmap
 
 Updated to reflect what actually happened: after the 6-param model the project pivoted

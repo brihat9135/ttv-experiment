@@ -38,3 +38,6 @@ jaxttv_val.npz
 retrain_data.npz
 retrain_jaxttv.npz
 jaxttv_test.npz
+jaxttv_res_train.npz
+jaxttv_res_val.npz
+jaxttv_res_test.npz

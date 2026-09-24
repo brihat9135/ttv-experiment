@@ -586,6 +586,31 @@ that interval (y). On the dashed diagonal = honest error bars. All six parameter
 means calibrated; peaks at the edges would mean over/under-confidence. These are broadly flat.</li>
 </ul></div>
 
+<h3>Check 5 &middot; The hybrid in the near-resonance regime</h3>
+<p>Finally we pushed the hybrid to where the observables story lives: cross-resonance jaxttv data spanning
+period ratio <b>1.90&ndash;2.20</b> (ratio as a conditioning input), then trained the MDN on it. It
+<b>reproduces all four of our REBOUND cross-resonance findings on an independent forward model</b>, strong
+evidence they are physics, not a quirk of our simulator.</p>
+<figure>
+  <img src="jaxttv_resonance.png" alt="Cross-resonance hybrid: mass degeneracy peak + calibration">
+  <figcaption>Left: m2 posterior/prior width vs period ratio, peaking at the 2:1 separatrix (2.00), the
+  near-resonance mass degeneracy. Right: coverage stays on the diagonal across the resonance (1.4%). Generated
+  by <code>gen/train/eval_jaxttv_resonance.py</code>.</figcaption>
+</figure>
+<div class="howto"><span class="t">How to read this &mdash; the four findings, reproduced</span>
+<ul>
+<li><b>Left panel = the mass degeneracy.</b> The outer planet's mass posterior is <em>widest right at ratio
+2.00</em> (the 2:1 separatrix) and narrower off-resonance, the informativeness collapse, now in jaxttv physics.</li>
+<li><b>Right panel = calibration holds.</b> All six parameters sit on the diagonal (1.4% error): the posterior
+widens <em>honestly</em>, never overconfident.</li>
+<li><b>Not shown but in the training log:</b> val NLL <em>diverges</em> (best +4.57, then blows up, saved only
+by early-stopping) and collapses from &minus;6.26 at fixed ratio, exactly the two REBOUND failure modes.</li>
+</ul></div>
+<div class="callout win"><b>Result.</b> The hybrid carries the hard-regime physics faithfully. Next increment:
+add <b>radial velocity</b> to the jaxttv feature and show it breaks this near-resonance mass degeneracy
+in-hybrid (the jaxttv analog of the RV result). The training instability is the known defect the
+<b>flow head</b> targets, and this is its natural test bed.</div>
+
 <span class="anchor" id="thesis"></span>
 <h2>Refined thesis</h2>
 <ul>
