@@ -40,9 +40,17 @@ likelihood-based inference" and "Real data: Kepler-9" sections) and the single-f
 isolated venv `/tmp/jaxttv-venv` (they need numpy≥2; our Torch stack needs numpy<2) — may be wiped on
 reboot, reinstall via `pip install jnkepler`. `emcee`, `astroquery` also added.
 
-**Immediate next steps:** (a) **durations arm on Kepler-9** (TDV is in the same Holczer catalog; needs a
-REBOUND forward model since jaxttv has no durations) to localize mass along the ridge; (b) then RV;
-(c) multi-seed the real fit; (d) a general variable-length encoder for arbitrary systems (TRAPPIST-1).
+- **Durations Step A done** (`kepler9_durations_sim.py`): self-consistent REBOUND simulation at Kepler-9's
+  real periods, timing vs timing+durations flows. Durations **localize the mass ridge ~92%** (m1 37.7±16.3 →
+  40.9±1.2; m2 25.8±10.2 → 28.5±0.8). Diagnostic: REBOUND at the default phase under-predicts Kepler-9's real
+  TTVs ~5× — the real resonant phase/ecc is NOT matched, so Step A is honest *simulation* and **Step B (real
+  TDV fit) needs the real phase**.
+
+**Immediate next steps:** (a) **Step B — real Kepler-9 durations fit**: match REBOUND's phase/ecc to the real
+system (or find a durations-capable forward model consistent with the jaxttv timing fit), reconcile the
+fractional-TDV (catalog) vs minutes-duration (our model) units, then fit the real Holczer TDV to localize mass
+along the ridge; (b) then RV; (c) multi-seed the real fit; (d) a general variable-length encoder for arbitrary
+systems (TRAPPIST-1).
 
 ---
 

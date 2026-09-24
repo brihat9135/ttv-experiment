@@ -580,6 +580,16 @@ publication-grade posterior, but it **closes the loop end-to-end on real Kepler 
 step is exactly the observables lever: **transit durations** (which are in the same Holczer catalog as
 `TDV`) and **RV** localize the true mass *along* the ridge.
 
+**Durations, Step A — what they would buy (`kepler9_durations_sim.py`).** Before fitting real durations we do
+the honest self-consistent step: a **simulation at Kepler-9's real periods** (via REBOUND, since jaxttv has no
+durations), timing-only vs timing+durations flows on the same systems. Durations **localize the mass along the
+ridge**: at the published-mass test system, m1 = 37.7 ± 16.3 → **40.9 ± 1.2** (93% tighter), m2 = 25.8 ± 10.2 →
+**28.5 ± 0.8** (92%); val NLL −6.63 → −10.46. The timing ridge collapses to a blob on the published point
+(`kepler9_durations_sim.png`). A diagnostic found REBOUND at the default phase under-predicts Kepler-9's real
+TTVs ~5× (the real resonant phase isn't matched), which is exactly why Step A is *self-consistent simulation*
+(no duration-realism confound) and **Step B (fit the real Holczer TDV) must first match the real phase/ecc** —
+that is the current frontier.
+
 ## 6. Roadmap
 
 Updated to reflect what actually happened: after the 6-param model the project pivoted
