@@ -10,7 +10,7 @@ Pipeline (this IS the method, in miniature):
 After training, inference on a NEW system is a single forward pass (milliseconds)
 instead of a fresh MCMC/grid search (the whole point: amortization).
 """
-import time, numpy as np, torch
+import os, time, numpy as np, torch
 import simulator as S
 from model import MDN
 
@@ -21,7 +21,16 @@ NOISE_MIN = 0.5          # assumed transit-timing precision (minutes)
 EPOCHS = 400
 BATCH = 256
 LR = 1e-3
+HEAD = "flow"            # "flow" (default: neural spline flow, stable) or "mdn" (legacy)
+OUT = {"flow": "npe_flow.pt", "mdn": "mdn.pt"}[HEAD]
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
+
+def build_head():
+    if HEAD == "flow":
+        from flow import NPEFlow
+        return NPEFlow(in_dim=S.FEATURE_DIM, theta_dim=S.THETA_DIM).to(DEVICE)
+    return MDN(in_dim=S.FEATURE_DIM, theta_dim=S.THETA_DIM).to(DEVICE)
 
 
 def generate(n, seed):
@@ -41,10 +50,15 @@ def generate(n, seed):
 
 def main():
     torch.manual_seed(SEED)
-    print(f"Device: {DEVICE}")
-    print("Generating training simulations (this runs the real N-body model)...")
-    th_tr, f_tr = generate(N_TRAIN, SEED)
-    th_va, f_va = generate(N_VAL, SEED+1)
+    print(f"Device: {DEVICE} | head: {HEAD} -> {OUT}")
+    if os.path.exists("data.npz"):
+        print("Reusing cached data.npz (delete it to re-simulate).")
+        dd = np.load("data.npz")
+        th_tr, f_tr, th_va, f_va = dd["th_tr"], dd["f_tr"], dd["th_va"], dd["f_va"]
+    else:
+        print("Generating training simulations (this runs the real N-body model)...")
+        th_tr, f_tr = generate(N_TRAIN, SEED)
+        th_va, f_va = generate(N_VAL, SEED+1)
     print(f"Usable: {len(th_tr)} train, {len(th_va)} val")
 
     rng = np.random.default_rng(SEED+99)
@@ -62,7 +76,7 @@ def main():
     Xva, Yva = prep(f_va, th_va, rng)
     Xva, Yva = Xva.to(DEVICE), Yva.to(DEVICE)
 
-    net = MDN(in_dim=S.FEATURE_DIM, theta_dim=S.THETA_DIM).to(DEVICE)
+    net = build_head()
     opt = torch.optim.Adam(net.parameters(), lr=LR)
     sched = torch.optim.lr_scheduler.StepLR(opt, step_size=120, gamma=0.5)
 
@@ -89,10 +103,10 @@ def main():
                 vnll = net.nll(Xva, Yva).item()
             if vnll < best:
                 best = vnll
-                torch.save(net.state_dict(), "mdn.pt")
+                torch.save(net.state_dict(), OUT)
             print(f"epoch {ep:3d}  train_nll {tot/len(Xtr):+.3f}  val_nll {vnll:+.3f}  best {best:+.3f}")
 
-    print(f"\nDone. Best val NLL {best:.3f}. Saved model -> mdn.pt")
+    print(f"\nDone. Best val NLL {best:.3f}. Saved model -> {OUT}")
 
 
 if __name__ == "__main__":

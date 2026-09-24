@@ -25,8 +25,14 @@ f_mean, f_std = norm["f_mean"], norm["f_std"]
 th_mean, th_std = norm["th_mean"], norm["th_std"]
 NOISE_MIN = 0.5
 
-net = MDN(in_dim=S.FEATURE_DIM, theta_dim=S.THETA_DIM).to(DEVICE)
-net.load_state_dict(torch.load("mdn.pt", map_location=DEVICE))
+HEAD = "flow"           # "flow" (neural spline flow) or "mdn" (legacy); must match train.py
+if HEAD == "flow":
+    from flow import NPEFlow
+    net = NPEFlow(in_dim=S.FEATURE_DIM, theta_dim=S.THETA_DIM).to(DEVICE)
+    net.load_state_dict(torch.load("npe_flow.pt", map_location=DEVICE))
+else:
+    net = MDN(in_dim=S.FEATURE_DIM, theta_dim=S.THETA_DIM).to(DEVICE)
+    net.load_state_dict(torch.load("mdn.pt", map_location=DEVICE))
 net.eval()
 
 def infer(feat_noisy, n=4000):

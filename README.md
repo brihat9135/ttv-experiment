@@ -542,6 +542,18 @@ This is exactly the role the thesis assigns the flow: **stable training + faithf
 magic sharpener (the near-resonance marginals are still information-limited). The cross-resonance hybrid
 was the ideal test bed, and the flow head passes it.
 
+**Multi-seed (`flow_head_multiseed.py`).** The advantage holds across 3 independent training sets:
+flow val-NLL swing **7.0 ± 0.1 nats** vs MDN **451 ± 284** (the MDN diverges *every* seed), flow best
+val NLL **+0.62 ± 0.09** vs MDN **+3.75 ± 0.10**, flow calibration **3.8% ± 0.3%** (`flow_head_multiseed.png`).
+
+**Wired into the main pipeline as the default head.** `flow.py` provides `NPEFlow`, a drop-in with the
+MDN's exact interface (`.nll`, `.sample`); `train.py` and `evaluate.py` now default to `HEAD="flow"`
+(the MDN path is kept as `HEAD="mdn"`). Retrained end-to-end on the main REBOUND data, the flow reaches
+best val NLL **−9.52** and passes the full validation suite: recovery |z| < 0.35, **coverage on nominal**
+(50/68/90/95 → 46/65/88/93%), flat SBC, posterior-predictive 95% in-envelope, inference **32 ms/system**
+(vs 26–261 min for MCMC). So the flow is now the calibrated, stable default estimator, with the MDN
+retained for reference.
+
 ## 6. Roadmap
 
 Updated to reflect what actually happened: after the 6-param model the project pivoted
@@ -555,7 +567,7 @@ current frontier; the flow head, baseline parity, and real-data validation remai
 | **1. Full element vector** | REBOUND/WHFast + **6-param θ=(m₁,m₂,h₁,k₁,h₂,k₂)**, both planets transit, calibrated across all 6 | ✅ **done** |
 | **2. Resonance diagnosis** | swept toward 2:1; calibration stays robust (fails by *informativeness collapse* + *unstable training*, **not** overconfidence); disambiguation shows the collapse is **physical / data-limited**, not a model defect | ✅ **done** |
 | **3. Observables program** | add transit **durations** (pin *h*) and **radial velocity** (pin *k* + mass) to the forward model; 3-arm A/B/C across the resonance + robustness + cadence studies | ✅ **done — breaks the near-resonance mass degeneracy, 16%→83% tightening** |
-| 4. Flow head | ✅ swapped MDN → **neural spline flow** (`zuko`, `flow_head.py`) on the cross-resonance test bed: **cures the training instability** (val-NLL swing 83,966 → 7.1 nats), reaches better informativeness (+0.51 vs +5.34), stays calibrated (4.2%). Remaining: multi-seed + wire the flow into the main pipeline | **done (initial)** |
+| 4. Flow head | ✅ **done.** MDN → **neural spline flow** (`zuko`, `flow.py`/`flow_head*.py`): cures the cross-resonance instability (swing 7.0±0.1 vs MDN 451±284 nats, 3 seeds), calibrated (3.8%); **wired into the main pipeline as the default head** (`train.py`/`evaluate.py` `HEAD="flow"` → `npe_flow.pt`, val NLL −9.52, full validation suite passes) | **done** |
 | 5. Baseline parity | ✅ gold-standard MCMC on our own likelihood (`baseline_parity.py`, MDN matches it, ~2×10⁵× faster); ✅ actual `jaxttv` NUTS (`baseline_jaxttv.py`, 310 s/system, exact on its own physics); ✅ matched-system head-to-head (`headtohead_*.py`) — revealed a **~7-min forward-model mismatch**; ✅ **resolved by retraining the SBI on jaxttv's own forward model** (`gen_jaxttv_data.py` + `train_jaxttv_mdn.py`) — MDN and jaxttv NUTS now agree (`retrain_compare.png`). The hybrid (differentiable N-body → amortized head) is proven | **done** |
 | 6. Encoder + real data | set/transformer encoder (variable-length, variable planet count); run Kepler-9 / TRAPPIST-1; match published MCMC; SBC at scale; TTVFast cross-checks | pending |
 | 7. Survey scale | batch-apply to TESS/PLATO catalogs; release tool + paper | pending |
