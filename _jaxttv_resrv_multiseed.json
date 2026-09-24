@@ -1,0 +1,26 @@
+{
+  "seeds": [
+    0,
+    1,
+    2
+  ],
+  "tighten_pct_per_seed": [
+    80.78823604953276,
+    82.87997404069168,
+    82.59887774453215
+  ],
+  "tighten_mean": 82.1,
+  "tighten_std": 0.9,
+  "valnll_timing": [
+    3.613,
+    3.792,
+    3.851
+  ],
+  "valnll_timing_rv": [
+    -1.759,
+    -1.741,
+    -1.901
+  ],
+  "calib_timing": 0.019,
+  "calib_timing_rv": 0.0462
+}

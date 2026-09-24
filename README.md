@@ -521,6 +521,13 @@ mass is information-limited from timing alone, and **radial velocity pins it (83
 lacks transit durations, so the *h*-from-durations arm would still come from REBOUND; but RV alone
 already removes the near-resonance mass degeneracy in-hybrid.
 
+**Multi-seed error bar (`gen_jaxttv_resrv_multiseed.py` + `multiseed_resrv.py`).** Across **3
+independent training sets** (fresh θ draws + inits, evaluated on the same held-out test set), the
+separatrix tightening is **82 ± 1%** (per-seed 81/83/83), with val NLL **+3.75±0.10 → −1.80±0.07**
+and calibration **1.9% (timing) / 4.6% (timing+RV)** — the mild richer-arm overconfidence is
+consistent across seeds. So the headline is not a single-seed fluke: **RV breaks the near-resonance
+mass degeneracy at 82 ± 1%** in-hybrid. See `jaxttv_resrv_multiseed.png`.
+
 ## 6. Roadmap
 
 Updated to reflect what actually happened: after the 6-param model the project pivoted
