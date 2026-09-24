@@ -47,3 +47,4 @@ jaxttv_resrv_test.npz
 jaxttv_resrv_train_s*.npz
 jaxttv_resrv_val_s*.npz
 kepler9_koi*.tsv
+kepler9_train.npz
