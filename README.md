@@ -478,6 +478,13 @@ that keeps our amortization/scale edge while inheriting jaxttv's exact physics, 
 technical bridge to a `jaxttv`-based benchmark or collaboration. Residual differences (the ~2× width,
 few-σ offsets) are the normal amortized-vs-exact gap, in the safe (conservative) direction.
 
+**Calibration of the retrained model (`eval_jaxttv_mdn.py`, 3000 held-out jaxttv systems).** Beyond
+the single-system agreement, the jaxttv-trained MDN is **well-calibrated across the population**:
+empirical coverage sits on the diagonal at every level and parameter (50→49, 68→67, 90→88, 95→93%;
+**mean |coverage − nominal| = 1.6%**) with broadly flat SBC rank histograms (minor deviations only,
+a slight k1 tilt, a small m2 rank-0 spike — expected at single-seed). So the retrained posterior is
+trustworthy across many systems, not just on one. See `calib_jaxttv.png`.
+
 ## 6. Roadmap
 
 Updated to reflect what actually happened: after the 6-param model the project pivoted
