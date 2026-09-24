@@ -1,0 +1,61 @@
+{
+  "jaxttv_seconds": 393.5,
+  "per_param": {
+    "m1 [Me]": {
+      "truth": 8.0,
+      "jaxttv_mean": 7.5499,
+      "jaxttv_std": 0.3198,
+      "mdn_mean": 8.9388,
+      "mdn_std": 0.946,
+      "mean_offset_in_jaxttv_sigma": 4.344,
+      "width_ratio_mdn_over_jaxttv": 2.958
+    },
+    "m2 [Me]": {
+      "truth": 28.0,
+      "jaxttv_mean": 25.3691,
+      "jaxttv_std": 1.8885,
+      "mdn_mean": 28.4139,
+      "mdn_std": 2.9131,
+      "mean_offset_in_jaxttv_sigma": 1.612,
+      "width_ratio_mdn_over_jaxttv": 1.543
+    },
+    "h1": {
+      "truth": 0.05,
+      "jaxttv_mean": 0.0513,
+      "jaxttv_std": 0.0042,
+      "mdn_mean": 0.0446,
+      "mdn_std": 0.0072,
+      "mean_offset_in_jaxttv_sigma": 1.606,
+      "width_ratio_mdn_over_jaxttv": 1.738
+    },
+    "k1": {
+      "truth": 0.0,
+      "jaxttv_mean": 0.0026,
+      "jaxttv_std": 0.0032,
+      "mdn_mean": -0.0049,
+      "mdn_std": 0.0064,
+      "mean_offset_in_jaxttv_sigma": 2.312,
+      "width_ratio_mdn_over_jaxttv": 1.988
+    },
+    "h2": {
+      "truth": 0.03,
+      "jaxttv_mean": 0.023,
+      "jaxttv_std": 0.0086,
+      "mdn_mean": 0.0169,
+      "mdn_std": 0.014,
+      "mean_offset_in_jaxttv_sigma": 0.715,
+      "width_ratio_mdn_over_jaxttv": 1.632
+    },
+    "k2": {
+      "truth": 0.04,
+      "jaxttv_mean": 0.0407,
+      "jaxttv_std": 0.005,
+      "mdn_mean": 0.0233,
+      "mdn_std": 0.0144,
+      "mean_offset_in_jaxttv_sigma": 3.466,
+      "width_ratio_mdn_over_jaxttv": 2.868
+    }
+  },
+  "mean_abs_offset_sigma": 2.342,
+  "mean_width_ratio_mdn_over_jaxttv": 2.121
+}
