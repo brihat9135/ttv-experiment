@@ -41,3 +41,6 @@ jaxttv_test.npz
 jaxttv_res_train.npz
 jaxttv_res_val.npz
 jaxttv_res_test.npz
+jaxttv_resrv_train.npz
+jaxttv_resrv_val.npz
+jaxttv_resrv_test.npz

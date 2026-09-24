@@ -506,6 +506,21 @@ jaxttv analog of §3.9. (Transit durations are not available in jaxttv, so the h
 still come from our REBOUND simulator.) The training instability is the known defect the **flow head**
 targets, and this cross-resonance hybrid is the natural test bed for it.
 
+**RV breaks the degeneracy in-hybrid (`gen_jaxttv_resonance_rv.py` + `train_jaxttv_resonance_rv.py`
++ `eval_jaxttv_resonance_rv.py`).** We then added the star's radial-velocity curve (30 epochs, m/s,
+from jnkepler's `get_transit_times_and_rvs_obs`) as a second arm and re-ran across the resonance.
+The result **reproduces the REBOUND §3.9 RV headline on an independent forward model**:
+> At the 2:1 separatrix the m2 posterior/prior width drops from **0.65 (timing) to 0.11
+> (timing+RV) — an 83% tightening** — and the timing+RV width is **flat across the whole resonance**
+> (the separatrix peak is gone entirely; see `jaxttv_resonance_rv.png`). Best val NLL improves
+> **+5.34 → −1.72** (RV adds ~7 nats). Calibration: the timing arm is 0.8%; the richer timing+RV arm
+> drifts to **4.8%** (mildly overconfident) — the *same* subtlety the REBOUND run showed.
+
+So the whole observational thesis now holds across two independent N-body codes: near resonance the
+mass is information-limited from timing alone, and **radial velocity pins it (83% tightening)**. jaxttv
+lacks transit durations, so the *h*-from-durations arm would still come from REBOUND; but RV alone
+already removes the near-resonance mass degeneracy in-hybrid.
+
 ## 6. Roadmap
 
 Updated to reflect what actually happened: after the 6-param model the project pivoted
