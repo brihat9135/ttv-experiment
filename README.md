@@ -554,6 +554,32 @@ best val NLL **−9.52** and passes the full validation suite: recovery |z| < 0.
 (vs 26–261 min for MCMC). So the flow is now the calibrated, stable default estimator, with the MDN
 retained for reference.
 
+### Real data: Kepler-9 (`kepler9_fetch.py` + `kepler9_gen_jaxttv.py` + `kepler9_fit.py`)
+
+The end of the arc: point the hybrid at **real Kepler observations**. We fetched the actual
+per-transit timings of **Kepler-9 b/c** from the Holczer et al. 2016 Kepler TTV catalog (VizieR
+`J/ApJS/225/9`), 64 + 33 clean transits at ~1-min precision, near-2:1 (P = 19.25 / 38.95 d),
+configured **jaxttv at that exact geometry** (real periods, real transit ephemerides via `tic`, the
+real observed transit numbers including gaps, `newton` solver for 100% training-sim survival),
+trained the flow head on config-specific sims, and applied it to the **observed O-C**.
+
+**Result.** The amortized flow recovers the published dynamical masses:
+> m1 (Kepler-9b) = **51 ± 16 M⊕** vs published 43.4 (**0.5σ**); m2 (Kepler-9c) = **35 ± 11 M⊕** vs
+> published 29.8 (**0.4σ**); config-specific flow calibrated at **3.2%** on held-out sims. Inference on
+> the real data is a **single forward pass**.
+
+**What the posterior shows (`kepler9_fit.png`).** The m1–m2 posterior is a thin diagonal **ridge**
+through the published point: the **mass ratio** is well-constrained, but the absolute masses **slide
+along the ridge** (wide marginals). That is the timing-only mass degeneracy, on real data, and it lines
+up with a recent critique that Kepler-9's tightly-quoted TTV masses hide degenerate solutions along
+exactly this ridge. Our flow **shows the ridge** instead of collapsing to one over-confident point.
+
+**Honest caveats.** Single-seed; timing-only; e2 pushes toward the prior edge (0.15), so the absolute-mass
+point estimate runs ~15% high (still within 1σ). This is a first real-data validation, not a
+publication-grade posterior, but it **closes the loop end-to-end on real Kepler data**. The natural next
+step is exactly the observables lever: **transit durations** (which are in the same Holczer catalog as
+`TDV`) and **RV** localize the true mass *along* the ridge.
+
 ## 6. Roadmap
 
 Updated to reflect what actually happened: after the 6-param model the project pivoted
@@ -569,7 +595,7 @@ current frontier; the flow head, baseline parity, and real-data validation remai
 | **3. Observables program** | add transit **durations** (pin *h*) and **radial velocity** (pin *k* + mass) to the forward model; 3-arm A/B/C across the resonance + robustness + cadence studies | ✅ **done — breaks the near-resonance mass degeneracy, 16%→83% tightening** |
 | 4. Flow head | ✅ **done.** MDN → **neural spline flow** (`zuko`, `flow.py`/`flow_head*.py`): cures the cross-resonance instability (swing 7.0±0.1 vs MDN 451±284 nats, 3 seeds), calibrated (3.8%); **wired into the main pipeline as the default head** (`train.py`/`evaluate.py` `HEAD="flow"` → `npe_flow.pt`, val NLL −9.52, full validation suite passes) | **done** |
 | 5. Baseline parity | ✅ gold-standard MCMC on our own likelihood (`baseline_parity.py`, MDN matches it, ~2×10⁵× faster); ✅ actual `jaxttv` NUTS (`baseline_jaxttv.py`, 310 s/system, exact on its own physics); ✅ matched-system head-to-head (`headtohead_*.py`) — revealed a **~7-min forward-model mismatch**; ✅ **resolved by retraining the SBI on jaxttv's own forward model** (`gen_jaxttv_data.py` + `train_jaxttv_mdn.py`) — MDN and jaxttv NUTS now agree (`retrain_compare.png`). The hybrid (differentiable N-body → amortized head) is proven | **done** |
-| 6. Encoder + real data | set/transformer encoder (variable-length, variable planet count); run Kepler-9 / TRAPPIST-1; match published MCMC; SBC at scale; TTVFast cross-checks | pending |
+| 6. Encoder + real data | ✅ **first real-data fit**: config-specific flow on the REAL Kepler-9 b/c timings (Holczer 2016), recovers published masses within 0.5σ (`kepler9_*.py`). Remaining: durations/RV to localize along the mass ridge, a general set/transformer encoder for variable-length/planet-count, more systems (TRAPPIST-1), SBC at scale | **real fit done (Kepler-9, timing-only)** |
 | 7. Survey scale | batch-apply to TESS/PLATO catalogs; release tool + paper | pending |
 
 *(A "stochastic-simulator" treatment of strong chaos was in the original plan but proved

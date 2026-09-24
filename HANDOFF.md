@@ -7,6 +7,45 @@ point.
 
 ---
 
+## UPDATE (2026-09-24): incumbent benchmark → jaxttv hybrid → flow head → first real-data fit
+
+A major arc since the durations/RV work below. Full detail in `README.md` (the "Relationship to
+likelihood-based inference" and "Real data: Kepler-9" sections) and the single-file `walkthrough.html`
+(Checks 1–8; live at brihat9135.github.io/ttv-experiment/walkthrough.html).
+
+- **Benchmarked vs the incumbent.** `baseline_parity.py`: the MDN matches a gold-standard emcee MCMC
+  over our *own* REBOUND likelihood (mean width ratio 1.32) at 6.7 ms vs 1588 s (~2×10⁵× faster).
+  `baseline_jaxttv.py`: the actual incumbent (`jnkepler.jaxttv` differentiable N-body + NumPyro NUTS)
+  runs exact per system at ~310 s. Positioning: our edge is amortization-at-scale + calibration, not
+  per-system speed.
+- **Head-to-head exposed a forward-model mismatch.** `headtohead_*.py`: feeding identical transit times
+  to MDN and jaxttv, they disagreed because our REBOUND sim and jaxttv differ by **~7 min RMS at truth**
+  (independent of solver/timestep) — an orbital-element/convention mismatch, not a bug.
+- **Hybrid = SBI trained on jaxttv's forward model** (the fix). `gen_jaxttv_data.py` + `train_jaxttv_mdn.py`
+  (jaxttv `vmap`s at ~0.4 ms/system): MDN and jaxttv NUTS then agree; the jaxttv-trained MDN is calibrated
+  (1.6% on 3000 held-out). Cross-resonance hybrid (`*_resonance*.py`) reproduces ALL FOUR REBOUND
+  findings on an independent code — training instability, informativeness collapse, m2-width peak at the
+  2:1 separatrix, calibration holds. **RV breaks it in-hybrid at 82 ± 1%** (3 seeds; `*_resrv_*`).
+- **Flow head closes the last ML defect.** `flow.py` (`NPEFlow`, zuko neural spline flow, drop-in for the
+  MDN). On the cross-resonance regime the MDN val-NLL swing is 451 ± 284 nats (diverges every seed) vs
+  flow **7.0 ± 0.1** (stable), flow best +0.62 vs MDN +3.75, calibrated 3.8%. **Now the default head**:
+  `train.py`/`evaluate.py` use `HEAD="flow"` → `npe_flow.pt` (val NLL −9.52, passes the full suite).
+- **First REAL-data fit — Kepler-9.** `kepler9_fetch.py` pulls real Kepler-9 b/c timings from Holczer 2016
+  (VizieR); `kepler9_{gen_jaxttv,fit}.py` configure jaxttv at the real geometry and fit the observed O-C.
+  **Recovers the published masses within 0.5σ** (m1 51±16 vs 43.4; m2 35±11 vs 29.8; flow calib 3.2%). The
+  posterior is a thin **mass-ratio ridge** through the published point — the timing-only degeneracy on real
+  data, matching the "illusory precision" critique of Kepler-9.
+
+**New environments/deps:** `zuko` (flow, installed `--no-deps` to keep numpy<2). `jnkepler`/JAX live in an
+isolated venv `/tmp/jaxttv-venv` (they need numpy≥2; our Torch stack needs numpy<2) — may be wiped on
+reboot, reinstall via `pip install jnkepler`. `emcee`, `astroquery` also added.
+
+**Immediate next steps:** (a) **durations arm on Kepler-9** (TDV is in the same Holczer catalog; needs a
+REBOUND forward model since jaxttv has no durations) to localize mass along the ridge; (b) then RV;
+(c) multi-seed the real fit; (d) a general variable-length encoder for arbitrary systems (TRAPPIST-1).
+
+---
+
 ## 1. The goal we started from
 
 Use machine learning to **speed up posterior inference of exoplanet masses/orbits from
