@@ -732,6 +732,26 @@ phase under-predicts Kepler-9's real TTVs ~5&times;, so the <b>real</b> TDV fit 
 resonant phase/eccentricities. That is the next step.</li>
 </ul></div>
 
+<h3 style="color:#c0392b">Durations, Step B: the real TDV fit &mdash; an honest negative result</h3>
+<p>We then fit the <b>real</b> Holczer O-C + real fractional TDV with REBOUND at Kepler-9's periods and the
+gate's resonant phase. It <b>does not recover the masses</b>, and the two reasons are the useful finding.</p>
+<div class="callout warn"><b>Why it fails (both diagnosed, not guessed).</b>
+<ul>
+<li><b>Fixed-phase REBOUND is an inadequate forward model for real Kepler-9.</b> At the reference model the
+O-C correlation with the real data is only <b>0.50</b>, so even <em>timing-only</em> is biased, m2 = 63.7 vs
+published 29.8, a <b>4.7&sigma;</b> miss, far worse than the jaxttv timing fit (0.5&sigma;). jaxttv's
+<code>tic</code>-based phase handling was essential; a fixed REBOUND phase is not enough. <b>The phase must be
+jointly inferred.</b></li>
+<li><b>Duration-realism gap.</b> Our idealized duration model (edge-on, 1 R&#9737;) gives fractional-TDV rms
+<b>0.0036 vs the real 0.0179</b> (~5&times; too small), so the real TDV is out-of-distribution and does not help
+(mildly hurts).</li>
+</ul></div>
+<p>So the two durations steps together tell a clean, honest story: <b>Step A</b> (self-consistent simulation)
+proves the durations <em>lever is real</em> (92% mass localization); <b>Step B</b> shows that cashing it in on
+<em>real</em> Kepler-9 needs two things we do not yet have, a <b>realistic duration model</b> (true stellar
+radius, impact parameter, inclination) and <b>joint phase inference</b>. That is the concrete next frontier, and
+it is exactly the kind of gap that only shows up when you touch real data.</p>
+
 <span class="anchor" id="thesis"></span>
 <h2>Refined thesis</h2>
 <ul>

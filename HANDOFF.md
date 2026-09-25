@@ -46,11 +46,17 @@ reboot, reinstall via `pip install jnkepler`. `emcee`, `astroquery` also added.
   TTVs ~5× — the real resonant phase/ecc is NOT matched, so Step A is honest *simulation* and **Step B (real
   TDV fit) needs the real phase**.
 
-**Immediate next steps:** (a) **Step B — real Kepler-9 durations fit**: match REBOUND's phase/ecc to the real
-system (or find a durations-capable forward model consistent with the jaxttv timing fit), reconcile the
-fractional-TDV (catalog) vs minutes-duration (our model) units, then fit the real Holczer TDV to localize mass
-along the ridge; (b) then RV; (c) multi-seed the real fit; (d) a general variable-length encoder for arbitrary
-systems (TRAPPIST-1).
+- **Durations Step B done — honest NEGATIVE result** (`kepler9_stepB.py`): fitting the real Holczer O-C + real
+  fractional TDV with REBOUND (Kepler-9 periods, fixed phase 1.05) does NOT recover the masses. Two diagnosed
+  causes: (1) fixed-phase REBOUND is an inadequate forward model for real Kepler-9 (O-C corr 0.50 → even timing
+  biased, m2 4.7σ off, vs jaxttv timing 0.5σ), so **phase must be jointly inferred**; (2) **duration-realism
+  gap** — our edge-on/1-R☉ model gives fractional-TDV rms 0.0036 vs real 0.0179 (~5× too small), so real TDV is
+  out-of-distribution. Step A proved the lever (92%); Step B delineates the real-data requirements.
+
+**Immediate next steps:** (a) **realistic duration model** (true R★, impact parameter, inclination) so the
+model TDV matches real amplitude, plus **joint phase inference** (add PHASE2 as an inferred parameter, or use a
+durations-capable model consistent with jaxttv's tic) — then redo Step B; (b) **RV** on Kepler-9; (c) multi-seed
+the real fits; (d) a general variable-length encoder for arbitrary systems (TRAPPIST-1).
 
 ---
 

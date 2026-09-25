@@ -587,8 +587,21 @@ ridge**: at the published-mass test system, m1 = 37.7 ± 16.3 → **40.9 ± 1.2*
 **28.5 ± 0.8** (92%); val NLL −6.63 → −10.46. The timing ridge collapses to a blob on the published point
 (`kepler9_durations_sim.png`). A diagnostic found REBOUND at the default phase under-predicts Kepler-9's real
 TTVs ~5× (the real resonant phase isn't matched), which is exactly why Step A is *self-consistent simulation*
-(no duration-realism confound) and **Step B (fit the real Holczer TDV) must first match the real phase/ecc** —
-that is the current frontier.
+(no duration-realism confound).
+
+**Durations, Step B — the real TDV fit (`kepler9_stepB.py`), an honest negative result.** We fit the *real*
+Holczer O-C + real fractional TDV with REBOUND at Kepler-9's periods and the gate's resonant phase (1.05 rad).
+It **does not recover the masses**, and the two diagnosed causes are the useful outcome:
+> 1. **Fixed-phase REBOUND is an inadequate forward model for real Kepler-9** — O-C correlation only **0.50** at
+>    the reference model, so even timing-only is biased (m2 = 63.7 ± 9.4 vs published 29.8, **4.7σ**), far worse
+>    than the jaxttv timing fit (0.5σ). jaxttv's `tic`-based phase was essential; **the phase must be jointly
+>    inferred**, not fixed.
+> 2. **Duration-realism gap** — our edge-on, 1 R☉ duration model gives fractional-TDV rms **0.0036 vs the real
+>    0.0179** (~5× too small), so the real TDV is out-of-distribution and doesn't help.
+
+Net: **Step A proves the durations lever is real** (92% localization in self-consistent sim); **Step B shows that
+cashing it in on real Kepler-9 needs a realistic duration model** (true R★/impact parameter/inclination) **and
+joint phase inference**, the concrete next frontier, and exactly the kind of gap that only appears on real data.
 
 ## 6. Roadmap
 
