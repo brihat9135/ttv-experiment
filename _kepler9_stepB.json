@@ -1,0 +1,35 @@
+{
+  "phase": 1.05,
+  "sign_oc": -1.0,
+  "sign_tdv": 1.0,
+  "tdv_model_rms": 0.0036,
+  "tdv_real_rms": 0.0179,
+  "m1_timing": [
+    61.8,
+    20.3
+  ],
+  "m1_tdv": [
+    54.3,
+    18.1
+  ],
+  "m2_timing": [
+    63.7,
+    9.4
+  ],
+  "m2_tdv": [
+    72.0,
+    9.0
+  ],
+  "tighten_pct": [
+    10.8,
+    4.2
+  ],
+  "sigma_from_published": [
+    0.6,
+    4.68
+  ],
+  "published": [
+    43.4,
+    29.8
+  ]
+}
